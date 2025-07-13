@@ -6,6 +6,7 @@ from sqlalchemy import text
 import redis.asyncio as redis
 
 from app.core.config import settings
+from app.db.session import get_db
 
 
 router = APIRouter()
@@ -36,6 +37,7 @@ async def health_check() -> Dict[str, str]:
 
 @router.get("/ready")
 async def readiness_check(
+    db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis_client),
 ) -> Dict[str, Any]:
     """
@@ -49,7 +51,7 @@ async def readiness_check(
         "status": "ready",
         "checks": {
             "redis": "unknown",
-            "database": "not_implemented",
+            "database": "unknown",
         }
     }
     
@@ -61,7 +63,13 @@ async def readiness_check(
         response["status"] = "not_ready"
         response["checks"]["redis"] = f"unhealthy: {str(e)}"
     
-    # Database check will be added later when SQLAlchemy is configured
+    # Check Database connection
+    try:
+        await db.execute(text("SELECT 1"))
+        response["checks"]["database"] = "healthy"
+    except Exception as e:
+        response["status"] = "not_ready"
+        response["checks"]["database"] = f"unhealthy: {str(e)}"
     
     if response["status"] == "not_ready":
         raise HTTPException(status_code=503, detail=response)

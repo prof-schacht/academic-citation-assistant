@@ -67,6 +67,17 @@ academic-citation-assistant/
    npm run dev
    ```
 
+### Issues Fixed
+- ✅ Fixed TailwindCSS v4 PostCSS error by downgrading to v3
+- ✅ Fixed Docker Compose pgvector image (ankane/pgvector:14 → pgvector/pgvector:pg14)
+- ✅ Removed deprecated 'version' attribute from docker-compose.yml
+
+### Testing Summary
+- ✅ Backend runs successfully on port 8000
+- ✅ Health endpoints working (/api/health/, /api/health/ready, /api/health/live)
+- ✅ Frontend runs successfully on port 3000
+- ✅ TailwindCSS styling working correctly
+
 ### Next Steps
 - Set up database models with SQLAlchemy
 - Configure Alembic for migrations

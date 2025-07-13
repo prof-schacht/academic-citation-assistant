@@ -140,11 +140,47 @@ alembic revision --autogenerate -m "description"
 alembic current
 ```
 
+### Document Management API
+
+**Create a document:**
+```bash
+curl -X POST http://localhost:8000/api/documents/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My Research Paper",
+    "description": "A paper about AI",
+    "content": {"root": {"type": "root", "children": [...]}},
+    "is_public": false
+  }'
+```
+
+**List documents:**
+```bash
+curl http://localhost:8000/api/documents/
+```
+
+**Get a specific document:**
+```bash
+curl http://localhost:8000/api/documents/{document_id}
+```
+
+**Update a document:**
+```bash
+curl -X PUT http://localhost:8000/api/documents/{document_id} \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Updated Title"}'
+```
+
+**Delete a document:**
+```bash
+curl -X DELETE http://localhost:8000/api/documents/{document_id}
+```
+
 ### Coming Soon
-- Document management endpoints
 - Citation suggestion endpoints
 - Paper upload and processing
 - User authentication
+- Real-time WebSocket connections
 
 ## Troubleshooting
 

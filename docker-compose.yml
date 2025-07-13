@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   postgres:
-    image: ankane/pgvector:14
+    image: pgvector/pgvector:pg14
     environment:
       POSTGRES_USER: citation_user
       POSTGRES_PASSWORD: citation_pass

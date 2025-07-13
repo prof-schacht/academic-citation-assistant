@@ -29,12 +29,12 @@ The Academic Citation Assistant is built as a modern web application with a micr
 - **State Management**: React Query for server state
 - **Real-time**: WebSocket connection for live suggestions
 
-### Backend API (Node.js)
-- **Framework**: Express/Fastify
-- **Language**: TypeScript
-- **Authentication**: JWT with refresh tokens
+### Backend API (FastAPI)
+- **Framework**: FASTAPI
+- **Language**: Python
+- **Authentication**: ?
 - **WebSocket**: Socket.io for real-time communication
-- **Queue**: Bull for background job processing
+- **Queue**: ?
 
 ### Database Layer
 - **Primary Database**: PostgreSQL 14+
@@ -44,7 +44,7 @@ The Academic Citation Assistant is built as a modern web application with a micr
 
 ### AI/ML Pipeline
 - **Embeddings**: Sentence Transformers (all-MiniLM-L6-v2)
-- **Vector Dimension**: 384 dimensions
+- **Vector Dimension**: 768 dimensions
 - **Similarity Search**: Cosine similarity with IVFFlat index
 
 ## Data Flow
@@ -121,6 +121,7 @@ The Academic Citation Assistant is built as a modern web application with a micr
 - Query result caching
 - Batch embedding generation
 - Async job processing
+- FASTAPI Python as technology
 
 ### Database
 - IVFFlat index for vector search

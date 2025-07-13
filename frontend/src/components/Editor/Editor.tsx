@@ -9,6 +9,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 // import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin';
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
+import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 // import LexicalErrorBoundary from '@lexical/react/LexicalErrorBoundary';
 import { $getRoot } from 'lexical';
 import type { EditorState } from 'lexical';
@@ -16,13 +17,16 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 
 import editorConfig from './EditorConfig';
 import Toolbar from './Toolbar';
+import StatusBar from './StatusBar';
+import WordCountPlugin from './plugins/WordCountPlugin';
+import KeyboardShortcutsPlugin from './plugins/KeyboardShortcutsPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
 
 interface EditorProps {
   documentId?: string;
   initialContent?: any;
-  onSave?: (content: any) => void;
+  onSave?: (content: any, editorState?: EditorState) => void;
   autoSaveDelay?: number;
 }
 
@@ -85,6 +89,8 @@ const Editor: React.FC<EditorProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [hasContentChanged, setHasContentChanged] = useState(false);
   const [isNewDocument] = useState(!initialContent);
+  const [wordCount, setWordCount] = useState(0);
+  const [characterCount, setCharacterCount] = useState(0);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Create debounced save function
@@ -99,7 +105,7 @@ const Editor: React.FC<EditorProps> = ({
         setLastSaved(new Date());
         
         if (onSave) {
-          onSave(content);
+          onSave(content, editorState);
         }
       } catch (error) {
         console.error('Failed to auto-save:', error);
@@ -151,24 +157,34 @@ const Editor: React.FC<EditorProps> = ({
             <HistoryPlugin />
             <ListPlugin />
             <LinkPlugin />
+            <TablePlugin />
             {/* <MarkdownShortcutPlugin /> */}
             <TabIndentationPlugin />
             <AutoFocusPlugin />
             <LoadInitialContentPlugin content={initialContent} />
+            <WordCountPlugin 
+              onWordCountChange={(words, chars) => {
+                setWordCount(words);
+                setCharacterCount(chars);
+              }} 
+            />
+            <KeyboardShortcutsPlugin 
+              onSave={() => {
+                // Trigger manual save
+                if (documentId) {
+                  debouncedSave.flush();
+                }
+              }}
+            />
           </div>
 
           {/* Status bar */}
-          <div className="border-t border-gray-200 px-4 py-2 flex items-center justify-between text-sm text-gray-600">
-            <div>
-              {isSaving && <span>Saving...</span>}
-              {!isSaving && lastSaved && (
-                <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
-              )}
-            </div>
-            <div>
-              {documentId && <span className="text-xs">ID: {documentId}</span>}
-            </div>
-          </div>
+          <StatusBar
+            wordCount={wordCount}
+            characterCount={characterCount}
+            lastSaved={lastSaved}
+            isSaving={isSaving}
+          />
         </div>
       </LexicalComposer>
     </div>

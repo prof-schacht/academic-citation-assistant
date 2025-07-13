@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '../components/Editor/Editor';
 import CitationPanel from '../components/CitationPanel/CitationPanel';
+import ExportDialog from '../components/ExportDialog';
 import { documentService } from '../services/documentService';
 import type { DocumentType } from '../services/documentService';
+import type { EditorState } from 'lexical';
 
 // Global counter for debugging
 let effectRunCount = 0;
@@ -15,6 +17,9 @@ const DocumentEditor: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showCitationPanel, setShowCitationPanel] = useState(true);
+  const editorStateRef = useRef<EditorState | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -138,8 +143,11 @@ const DocumentEditor: React.FC = () => {
     }
   };
 
-  const handleSave = (content: any) => {
+  const handleSave = (content: any, editorState?: EditorState) => {
     console.log('Document saved:', content);
+    if (editorState) {
+      editorStateRef.current = editorState;
+    }
   };
 
   if (isLoading) {
@@ -193,14 +201,17 @@ const DocumentEditor: React.FC = () => {
             />
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500">
-              {document.word_count} words
-            </span>
             <button
-              onClick={() => navigate(`/documents/${document.id}/citations`)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              onClick={() => setShowExportDialog(true)}
+              className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
             >
-              Citations ({document.citation_count})
+              Export
+            </button>
+            <button
+              onClick={() => setShowCitationPanel(!showCitationPanel)}
+              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              {showCitationPanel ? 'Hide' : 'Show'} Citations
             </button>
           </div>
         </div>
@@ -219,10 +230,20 @@ const DocumentEditor: React.FC = () => {
         </div>
         
         {/* Citation suggestions panel - 40% width */}
-        <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
-          <CitationPanel documentId={document.id} />
-        </div>
+        {showCitationPanel && (
+          <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
+            <CitationPanel documentId={document.id} />
+          </div>
+        )}
       </div>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        documentTitle={document.title}
+        editorState={editorStateRef.current}
+      />
     </div>
   );
 };

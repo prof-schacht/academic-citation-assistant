@@ -8,9 +8,12 @@ import {
   UNDO_COMMAND,
   REDO_COMMAND,
 } from 'lexical';
-import { $createHeadingNode } from '@lexical/rich-text';
+import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
 import { $setBlocksType } from '@lexical/selection';
+import { $createCodeNode } from '@lexical/code';
+import { INSERT_HORIZONTAL_RULE_COMMAND } from '@lexical/react/LexicalHorizontalRuleNode';
+import { INSERT_TABLE_COMMAND } from '@lexical/table';
 
 const Toolbar: React.FC = () => {
   const [editor] = useLexicalComposerContext();
@@ -120,6 +123,52 @@ const Toolbar: React.FC = () => {
         title="Numbered List"
       >
         1. List
+      </button>
+
+      <div className="w-px h-6 bg-gray-300" />
+
+      {/* Block formatting */}
+      <button
+        onClick={() => {
+          editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+              $setBlocksType(selection, () => $createQuoteNode());
+            }
+          });
+        }}
+        className="p-2 hover:bg-gray-100 rounded"
+        title="Quote"
+      >
+        "
+      </button>
+      <button
+        onClick={() => {
+          editor.update(() => {
+            const selection = $getSelection();
+            if ($isRangeSelection(selection)) {
+              $setBlocksType(selection, () => $createCodeNode());
+            }
+          });
+        }}
+        className="p-2 hover:bg-gray-100 rounded font-mono text-sm"
+        title="Code Block"
+      >
+        {'<>'}
+      </button>
+      <button
+        onClick={() => editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined)}
+        className="p-2 hover:bg-gray-100 rounded"
+        title="Horizontal Rule"
+      >
+        ―
+      </button>
+      <button
+        onClick={() => editor.dispatchCommand(INSERT_TABLE_COMMAND, { rows: 3, columns: 3 })}
+        className="p-2 hover:bg-gray-100 rounded"
+        title="Insert Table"
+      >
+        ⊞
       </button>
 
       <div className="w-px h-6 bg-gray-300" />

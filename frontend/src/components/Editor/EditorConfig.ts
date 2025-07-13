@@ -2,7 +2,7 @@ import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { ListItemNode, ListNode } from '@lexical/list';
-import { CodeNode } from '@lexical/code';
+import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { AutoLinkNode, LinkNode } from '@lexical/link';
 import { TableNode, TableCellNode, TableRowNode } from '@lexical/table';
 
@@ -43,6 +43,7 @@ const editorConfig: InitialConfigType = {
     ListNode,
     ListItemNode,
     CodeNode,
+    CodeHighlightNode,
     AutoLinkNode,
     LinkNode,
     TableNode,

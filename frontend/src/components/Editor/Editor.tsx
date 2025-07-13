@@ -130,9 +130,9 @@ const Editor: React.FC<EditorProps> = ({
   }, [debouncedSave]);
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-white">
       <LexicalComposer initialConfig={editorConfig}>
-        <div className="flex-1 flex flex-col bg-white rounded-lg shadow-sm">
+        <div className="flex-1 flex flex-col">
           <Toolbar />
           
           <div className="flex-1 relative">

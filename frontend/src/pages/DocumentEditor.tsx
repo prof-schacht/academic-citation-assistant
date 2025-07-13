@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '../components/Editor/Editor';
+import CitationPanel from '../components/CitationPanel/CitationPanel';
 import { documentService } from '../services/documentService';
 import type { DocumentType } from '../services/documentService';
 
@@ -205,14 +206,22 @@ const DocumentEditor: React.FC = () => {
         </div>
       </header>
 
-      {/* Editor */}
-      <div className="flex-1 overflow-hidden">
-        <Editor
-          documentId={document.id}
-          initialContent={document.content || undefined}
-          onSave={handleSave}
-          autoSaveDelay={2000}
-        />
+      {/* Main content area with split layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Editor - 60% width */}
+        <div className="flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200">
+          <Editor
+            documentId={document.id}
+            initialContent={document.content || undefined}
+            onSave={handleSave}
+            autoSaveDelay={2000}
+          />
+        </div>
+        
+        {/* Citation suggestions panel - 40% width */}
+        <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
+          <CitationPanel documentId={document.id} />
+        </div>
       </div>
     </div>
   );

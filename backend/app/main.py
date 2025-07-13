@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.api import health
+from app.api import health, documents
 
 
 @asynccontextmanager
@@ -50,3 +50,4 @@ async def root():
 
 # Include routers
 app.include_router(health.router, prefix=f"{settings.api_prefix}/health", tags=["health"])
+app.include_router(documents.router, prefix=f"{settings.api_prefix}/documents", tags=["documents"])

@@ -121,6 +121,25 @@ Currently available endpoints:
 - `GET /api/health/ready` - Readiness probe
 - `GET /api/health/live` - Liveness probe
 
+### Database Management
+
+**Run migrations:**
+```bash
+cd backend
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+alembic upgrade head
+```
+
+**Create new migration:**
+```bash
+alembic revision --autogenerate -m "description"
+```
+
+**Check migration status:**
+```bash
+alembic current
+```
+
 ### Coming Soon
 - Document management endpoints
 - Citation suggestion endpoints

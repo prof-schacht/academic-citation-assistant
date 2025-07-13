@@ -1,56 +1,52 @@
-"""Script to create a test user for development."""
+#!/usr/bin/env python3
+"""Create a test user for development."""
 import asyncio
-import uuid
-from datetime import datetime
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-
-from app.core.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_db
 from app.models.user import User
+from passlib.context import CryptContext
+import uuid
 
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
 
 async def create_test_user():
-    """Create a test user with a specific UUID."""
-    # Create engine
-    engine = create_async_engine(settings.database_url, echo=True)
-    
-    # Create session
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-    
-    async with async_session() as session:
-        # Check if test user already exists
-        test_user_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
-        existing = await session.get(User, test_user_id)
-        
-        if existing:
-            print(f"Test user already exists: {existing.email}")
-            return
-        
-        # Create test user
-        test_user = User(
-            id=test_user_id,
-            email="test@example.com",
-            hashed_password="hashed_password_here",  # In production, this would be properly hashed
-            full_name="Test User",
-            bio="A test user for development",
-            affiliation="Test University",
-            is_active=True,
-            is_verified=True,
-            is_superuser=False,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        
-        session.add(test_user)
-        await session.commit()
-        
-        print(f"Created test user: {test_user.email} with ID: {test_user.id}")
-    
-    await engine.dispose()
-
+    """Create a test user."""
+    async for db in get_db():
+        try:
+            # Check if test user already exists
+            existing = await db.get(User, uuid.UUID("00000000-0000-0000-0000-000000000001"))
+            if existing:
+                print("Test user already exists")
+                return
+            
+            # Create test user
+            test_user = User(
+                id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                email="test@example.com",
+                hashed_password=get_password_hash("testpassword"),
+                full_name="Test User",
+                is_active=True,
+                is_verified=True,
+                is_superuser=False
+            )
+            
+            db.add(test_user)
+            await db.commit()
+            print("Test user created successfully")
+            
+        except Exception as e:
+            print(f"Error creating test user: {e}")
+            await db.rollback()
+        finally:
+            await db.close()
 
 if __name__ == "__main__":
     asyncio.run(create_test_user())

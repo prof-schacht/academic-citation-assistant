@@ -8,29 +8,23 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN pip install uv
-
-# Copy project files
+# Copy requirements first for better caching
 COPY pyproject.toml ./
-COPY run.py ./
 
 # Create app directory structure
-RUN mkdir -p app/api app/core
+RUN mkdir -p app/api app/core app/db app/models app/services app/utils
 
-# Copy app directory
+# Copy application code
 COPY app ./app
-
-# Create virtual environment and install dependencies
-RUN uv venv && \
-    . .venv/bin/activate && \
-    uv pip install -e ".[dev]"
-
-# Copy run.py after dependencies are installed
 COPY run.py ./
+
+# Install Python dependencies directly (no venv needed in container)
+RUN pip install --upgrade pip
+RUN pip install uv
+RUN uv pip install --system -e ".[dev]"
 
 # Expose port
 EXPOSE 8000
 
-# Default command (can be overridden in docker-compose)
-CMD [".venv/bin/python", "run.py"]
+# Run the application
+CMD ["python", "run.py"]

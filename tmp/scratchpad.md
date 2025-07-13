@@ -71,6 +71,11 @@ academic-citation-assistant/
 - ✅ Fixed TailwindCSS v4 PostCSS error by downgrading to v3
 - ✅ Fixed Docker Compose pgvector image (ankane/pgvector:14 → pgvector/pgvector:pg14)
 - ✅ Removed deprecated 'version' attribute from docker-compose.yml
+- ✅ Fixed frontend Docker: upgraded to Node.js 20 for Vite compatibility
+- ✅ Fixed backend Docker: corrected dependency installation process
+- ✅ Downgraded Vite from v7 to v5 for better stability
+- ✅ Fixed Docker volume mounts to prevent node_modules conflicts
+- ✅ Added .dockerignore files to optimize build context
 
 ### Testing Summary
 - ✅ Backend runs successfully on port 8000

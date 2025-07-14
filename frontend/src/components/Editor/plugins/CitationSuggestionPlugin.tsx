@@ -77,8 +77,8 @@ export function CitationSuggestionPlugin({
         return;
       }
       
+      // Always check the actual connection status, not the React state
       const currentConnectionStatus = wsClientRef.current.getConnectionStatus();
-      console.log('[CitationPlugin] Connection status:', currentConnectionStatus, 'isConnected state:', isConnected);
       
       if (!currentConnectionStatus) {
         console.log('[CitationPlugin] Not connected, skipping suggestion request');
@@ -102,8 +102,11 @@ export function CitationSuggestionPlugin({
         // Get current text
         const currentText = context.currentSentence || '';
         
+        console.log('[CitationPlugin] Extracted text:', currentText, 'Length:', currentText.trim().length);
+        
         // Skip if text hasn't changed significantly
         if (currentText === lastTextRef.current || currentText.trim().length < 10) {
+          console.log('[CitationPlugin] Skipping - same text or too short');
           return;
         }
 

@@ -219,12 +219,12 @@ export class CitationWebSocketClient {
 
   /**
    * Extract context from Lexical editor state
+   * Note: This should be called from within an editor.read() callback
    */
   static extractContextFromEditor(editorState: EditorState, cursorOffset?: number): Partial<TextContext> {
-    const textContent = editorState.read(() => {
-      const root = editorState.getRoot();
-      return root.getTextContent();
-    });
+    // Get the root node and extract text content
+    const root = editorState._nodeMap.get('root');
+    const textContent = root?.getTextContent() || '';
 
     // Improved sentence extraction that handles incomplete sentences
     // Split by sentence-ending punctuation OR newlines

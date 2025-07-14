@@ -73,17 +73,20 @@ manager = ConnectionManager()
 
 async def websocket_citation_endpoint(
     websocket: WebSocket,
-    user_id: str = Query(...),
-    db: AsyncSession = Depends(get_db)
+    user_id: str = Query(...)
 ):
     """WebSocket endpoint for real-time citation suggestions."""
     await manager.connect(websocket, user_id)
     
-    # Initialize services
-    text_service = TextAnalysisService()
-    citation_engine = CitationEngine(db)
+    # Get database session
+    db_gen = get_db()
+    db = await anext(db_gen)
     
     try:
+        # Initialize services
+        text_service = TextAnalysisService()
+        citation_engine = CitationEngine(db)
+        
         while True:
             # Receive message from client
             data = await websocket.receive_json()
@@ -153,3 +156,9 @@ async def websocket_citation_endpoint(
     except Exception as e:
         logger.error(f"WebSocket error for user {user_id}: {e}")
         manager.disconnect(user_id)
+    finally:
+        # Clean up database connection
+        try:
+            await db_gen.aclose()
+        except:
+            pass

@@ -99,9 +99,9 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText,
               </div>
             ) : suggestions.length > 0 ? (
               <div className="space-y-3">
-                {suggestions.map((citation) => (
+                {suggestions.map((citation, index) => (
                   <div
-                    key={citation.paperId}
+                    key={citation.chunkId || `${citation.paperId}-${index}`}
                     className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between">
@@ -115,6 +115,21 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText,
                             : 'Unknown authors'} • {citation.year || 'No year'}
                           {citation.journal && ` • ${citation.journal}`}
                         </p>
+                        
+                        {/* Chunk preview */}
+                        {citation.chunkText && (
+                          <div className="mt-2 mb-3 p-2 bg-gray-50 rounded text-xs">
+                            {citation.sectionTitle && (
+                              <p className="font-semibold text-gray-700 mb-1">
+                                Section: {citation.sectionTitle}
+                              </p>
+                            )}
+                            <p className="text-gray-600 line-clamp-3">
+                              ...{citation.chunkText}
+                            </p>
+                          </div>
+                        )}
+                        
                         <div className="flex items-center space-x-4">
                           <span className="text-xs text-gray-500">
                             Confidence: {Math.round(citation.confidence * 100)}%
@@ -127,6 +142,11 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText,
                             {citation.confidence > 0.85 ? 'High' : 
                              citation.confidence > 0.70 ? 'Medium' : 'Low'}
                           </span>
+                          {citation.chunkIndex !== undefined && (
+                            <span className="text-xs text-gray-500">
+                              Part {citation.chunkIndex + 1}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -132,7 +132,11 @@ async def websocket_citation_endpoint(
                                 "abstract": s.abstract,
                                 "confidence": s.confidence,
                                 "citationStyle": s.citation_style,
-                                "displayText": s.display_text
+                                "displayText": s.display_text,
+                                "chunkText": s.chunk_text[:200] + "..." if len(s.chunk_text) > 200 else s.chunk_text,
+                                "chunkIndex": s.chunk_index,
+                                "chunkId": s.chunk_id,
+                                "sectionTitle": s.section_title
                             }
                             for s in suggestions
                         ]

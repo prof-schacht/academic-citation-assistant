@@ -22,9 +22,10 @@ import WordCountPlugin from './plugins/WordCountPlugin';
 import KeyboardShortcutsPlugin from './plugins/KeyboardShortcutsPlugin';
 import { CitationSuggestionPlugin } from './plugins/CitationSuggestionPlugin';
 import { CitationInsertPlugin } from './plugins/CitationInsertPlugin';
+import { SelectionCitationPlugin } from './plugins/SelectionCitationPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
-import type { CitationSuggestion } from '../../services/websocketService';
+import type { CitationSuggestion, CitationWebSocketClient } from '../../services/websocketService';
 
 interface EditorProps {
   documentId?: string;
@@ -103,6 +104,7 @@ const Editor: React.FC<EditorProps> = ({
   const [wordCount, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wsClientRef = useRef<CitationWebSocketClient | null>(null);
 
   // Create debounced save function
   const debouncedSave = useCallback(
@@ -188,11 +190,22 @@ const Editor: React.FC<EditorProps> = ({
               }}
             />
             {onCitationSuggestionsUpdate && (
-              <CitationSuggestionPlugin
-                userId={userId}
-                onSuggestionsUpdate={onCitationSuggestionsUpdate}
-                onConnectionChange={onCitationConnectionChange}
-              />
+              <>
+                <CitationSuggestionPlugin
+                  userId={userId}
+                  onSuggestionsUpdate={onCitationSuggestionsUpdate}
+                  onConnectionChange={onCitationConnectionChange}
+                  onWsClientReady={(client) => {
+                    wsClientRef.current = client;
+                  }}
+                />
+                <SelectionCitationPlugin
+                  wsClient={wsClientRef.current}
+                  onSelectionChange={(text) => {
+                    console.log('[Editor] Text selected for citation search:', text);
+                  }}
+                />
+              </>
             )}
             {onRegisterCitationInsert && (
               <CitationInsertPlugin

@@ -14,12 +14,14 @@ interface CitationSuggestionPluginProps {
   userId: string;
   onSuggestionsUpdate: (suggestions: CitationSuggestion[]) => void;
   onConnectionChange?: (connected: boolean) => void;
+  onWsClientReady?: (client: CitationWebSocketClient) => void;
 }
 
 export function CitationSuggestionPlugin({
   userId,
   onSuggestionsUpdate,
-  onConnectionChange
+  onConnectionChange,
+  onWsClientReady
 }: CitationSuggestionPluginProps): null {
   const [editor] = useLexicalComposerContext();
   const wsClientRef = useRef<CitationWebSocketClient | null>(null);
@@ -31,6 +33,9 @@ export function CitationSuggestionPlugin({
     console.log('[CitationPlugin] Initializing WebSocket for user:', userId);
     const wsClient = getCitationWebSocketClient(userId);
     wsClientRef.current = wsClient;
+    
+    // Notify parent component that client is ready
+    onWsClientReady?.(wsClient);
 
     // Set up callbacks
     wsClient.onSuggestions((suggestions) => {

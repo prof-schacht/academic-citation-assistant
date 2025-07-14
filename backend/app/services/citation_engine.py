@@ -27,6 +27,10 @@ class Citation:
     citation_style: str = "inline"  # inline or footnote
     display_text: str = ""
     relevance_scores: Dict[str, float] = None
+    chunk_text: str = ""  # The actual matching chunk text
+    chunk_index: int = 0  # Which chunk in the paper
+    chunk_id: str = ""    # Unique chunk identifier
+    section_title: str = ""  # Section where chunk appears
 
 
 class RankingService:
@@ -139,7 +143,11 @@ class RankingService:
                     "context": self._calculate_context_score(result, context),
                     "quality": self._calculate_quality_score(result),
                     "recency": self._calculate_recency_score(result.year)
-                }
+                },
+                chunk_text=result.chunk_text,
+                chunk_index=result.chunk_index,
+                chunk_id=result.metadata.get("chunk_id", ""),
+                section_title=result.metadata.get("section", "")
             )
             citations.append(citation)
             

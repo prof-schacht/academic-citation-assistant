@@ -22,6 +22,10 @@ export interface CitationSuggestion {
   confidence: number;
   citationStyle: 'inline' | 'footnote';
   displayText: string;
+  chunkText?: string;
+  chunkIndex?: number;
+  chunkId?: string;
+  sectionTitle?: string;
 }
 
 export interface WSMessage {

@@ -1,0 +1,247 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import FileUpload from '../components/FileUpload/FileUpload';
+import { paperService } from '../services/paperService';
+
+interface Paper {
+  id: string;
+  title: string;
+  authors: string[];
+  year: number;
+  journal?: string;
+  citationCount?: number;
+  chunkCount?: number;
+  status: 'processing' | 'indexed' | 'error';
+  createdAt: string;
+}
+
+const PaperLibrary: React.FC = () => {
+  const navigate = useNavigate();
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'indexed' | 'processing' | 'error'>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'title' | 'citations'>('date');
+
+  useEffect(() => {
+    loadPapers();
+  }, []);
+
+  const loadPapers = async () => {
+    try {
+      setIsLoading(true);
+      const userPapers = await paperService.getUserPapers();
+      setPapers(userPapers);
+    } catch (error) {
+      console.error('Failed to load papers:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFilesSelected = async (files: File[]) => {
+    console.log('Files selected for upload:', files);
+    // TODO: Implement file upload to backend
+    // This will be connected to the backend upload endpoint
+    try {
+      for (const file of files) {
+        await paperService.uploadPaper(file);
+      }
+      // Reload papers after upload
+      loadPapers();
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+  };
+
+  const filteredPapers = papers
+    .filter(paper => {
+      if (filterStatus !== 'all' && paper.status !== filterStatus) return false;
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          paper.title.toLowerCase().includes(query) ||
+          paper.authors.some(author => author.toLowerCase().includes(query))
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'citations':
+          return (b.citationCount || 0) - (a.citationCount || 0);
+        case 'date':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header - Following Issue #6 design */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">
+              📚 Paper Library
+            </h1>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/documents')}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Back to Documents
+              </button>
+              <button
+                onClick={() => setShowUpload(!showUpload)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                + Upload Papers
+              </button>
+              <button
+                className="p-2 text-gray-600 hover:text-gray-900"
+                title="Settings"
+              >
+                ⚙️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Upload Section */}
+        {showUpload && (
+          <div className="mb-8 bg-white rounded-lg shadow p-6">
+            <FileUpload onFilesSelected={handleFilesSelected} />
+          </div>
+        )}
+
+        {/* Library Controls - Following Issue #6 design */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                My Papers ({papers.length})
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  placeholder="🔍 Search papers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as any)}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Filter: All</option>
+                <option value="indexed">Indexed</option>
+                <option value="processing">Processing</option>
+                <option value="error">Errors</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="date">Sort: Date</option>
+                <option value="title">Sort: Title</option>
+                <option value="citations">Sort: Citations</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Papers List */}
+          <div className="divide-y">
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-500">
+                Loading papers...
+              </div>
+            ) : filteredPapers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                {searchQuery || filterStatus !== 'all'
+                  ? 'No papers match your search criteria'
+                  : 'No papers uploaded yet. Click "Upload Papers" to get started!'}
+              </div>
+            ) : (
+              filteredPapers.map(paper => (
+                <div
+                  key={paper.id}
+                  className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => {/* TODO: View paper details */}}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">📄</span>
+                        <h3 className="font-semibold text-gray-900">
+                          {paper.title}
+                        </h3>
+                      </div>
+                      <div className="mt-1 text-sm text-gray-600">
+                        {paper.authors.slice(0, 3).join(', ')}
+                        {paper.authors.length > 3 && ' et al.'}
+                        {' • '}
+                        {paper.year}
+                        {paper.journal && ` • ${paper.journal}`}
+                        {paper.citationCount !== undefined && ` • ${paper.citationCount.toLocaleString()} citations`}
+                      </div>
+                      <div className="mt-2 flex items-center space-x-4 text-sm">
+                        {paper.status === 'indexed' ? (
+                          <span className="text-green-600">
+                            ✓ Fully indexed • {paper.chunkCount || 0} chunks
+                          </span>
+                        ) : paper.status === 'processing' ? (
+                          <span className="text-yellow-600">
+                            ⚙️ Processing...
+                          </span>
+                        ) : (
+                          <span className="text-red-600">
+                            ❌ Error processing
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="ml-4 flex items-center space-x-2">
+                      <button
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // TODO: Edit paper metadata
+                        }}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="p-1 text-gray-400 hover:text-red-600"
+                        title="Delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // TODO: Delete paper
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PaperLibrary;

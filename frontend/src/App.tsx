@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import DocumentsList from './pages/DocumentsList';
 import DocumentEditor from './pages/DocumentEditor';
+import PaperLibrary from './pages/PaperLibrary';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/documents" element={<DocumentsList />} />
         <Route path="/editor" element={<DocumentEditor />} />
         <Route path="/editor/:id" element={<DocumentEditor />} />
+        <Route path="/library" element={<PaperLibrary />} />
       </Routes>
     </Router>
   );

@@ -87,29 +87,37 @@ const DocumentsList: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">My Documents</h1>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Use ref to prevent multiple navigations
-                if (!navigationLock.current) {
-                  navigationLock.current = true;
-                  setIsCreatingDocument(true);
-                  navigate('/editor');
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/library')}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+              >
+                📚 Paper Library
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   
-                  // Reset lock after a delay
-                  setTimeout(() => {
-                    navigationLock.current = false;
-                  }, 2000);
-                }
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-              disabled={isCreatingDocument || navigationLock.current}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
-            >
-              {isCreatingDocument ? 'Creating...' : '+ New Document'}
-            </button>
+                  // Use ref to prevent multiple navigations
+                  if (!navigationLock.current) {
+                    navigationLock.current = true;
+                    setIsCreatingDocument(true);
+                    navigate('/editor');
+                    
+                    // Reset lock after a delay
+                    setTimeout(() => {
+                      navigationLock.current = false;
+                    }, 2000);
+                  }
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                disabled={isCreatingDocument || navigationLock.current}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
+              >
+                {isCreatingDocument ? 'Creating...' : '+ New Document'}
+              </button>
+            </div>
           </div>
 
           {/* Search */}

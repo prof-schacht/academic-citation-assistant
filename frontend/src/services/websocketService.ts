@@ -2,7 +2,7 @@
  * WebSocket service for real-time citation suggestions
  */
 
-import { EditorState } from 'lexical';
+import type { EditorState } from 'lexical';
 
 export interface TextContext {
   currentSentence: string;

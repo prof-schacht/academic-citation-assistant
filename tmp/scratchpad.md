@@ -266,3 +266,18 @@ academic-citation-assistant/
 - Check backend logs for WebSocket connections and embedding generation
 - Ensure both backend and frontend are running
 - Make sure test data is populated (check with `python scripts/test_full_system.py`)
+
+## Import Error Fixes (2025-07-14)
+
+### Fixed EditorState Import Errors
+The user reported: "SyntaxError: Importing binding name 'EditorState' is not found."
+
+Fixed in two files:
+1. **frontend/src/services/websocketService.ts** (line 5)
+   - Changed: `import { EditorState } from 'lexical';`
+   - To: `import type { EditorState } from 'lexical';`
+
+2. **frontend/src/components/Editor/plugins/CitationSuggestionPlugin.tsx** (line 8)
+   - Already fixed to: `import type { EditorState } from 'lexical';`
+
+The issue was that EditorState is a TypeScript type, not a runtime value, so it needs to be imported as a type import.

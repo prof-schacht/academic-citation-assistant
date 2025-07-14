@@ -3,18 +3,34 @@
 ## Recent Updates (July 14, 2025)
 
 ### New Features:
-1. **Citation Insertion** - Click "Insert" to add citations directly into your document
+1. **Chunk-Based Search** - Papers are split into 250-word chunks with individual embeddings
+   - Searches entire paper content, not just abstracts
+   - Shows preview text from matching chunks
+   - Displays section titles and chunk numbers (Part 1, Part 2, etc.)
+   - Limited to 2 best chunks per paper to avoid duplicates
+
+2. **Sentence-Level Citation Suggestions** - Citations update based on current sentence
+   - Extracts only the sentence where your cursor is located
+   - No longer uses entire document for short texts
+   - Properly handles questions and complex punctuation
+   - Includes previous/next sentences for context
+
+3. **Citation Insertion** - Click "Insert" to add citations directly into your document
    - Format: `(Author et al., Year)` for papers with metadata
    - Fallback: `[paper-id]` for papers without metadata
-2. **Improved Metadata Extraction** - Better title and author detection from PDFs
-3. **Real-time Paper Processing** - Papers show chunk counts and processing status
-4. **Auto-refresh** - Paper library updates every 3 seconds while processing
+   - Text selection triggers manual citation search
+
+4. **Improved Metadata Extraction** - Better title and author detection from PDFs
+5. **Real-time Paper Processing** - Papers show chunk counts and processing status
+6. **Auto-refresh** - Paper library updates every 3 seconds while processing
 
 ### Fixed Issues:
-- Paper upload now works correctly with multipart form data
-- Chunk counts display properly (was showing 0 before)
+- Citation suggestions now change based on cursor position
+- No more duplicate suggestions with same key
+- Chunk preview shows why each paper was suggested
+- Paper upload works correctly with multipart form data
+- Chunk counts display properly
 - MarkItDown compatibility fixed for latest version
-- Field name consistency between frontend and backend
 
 ## API Configuration
 

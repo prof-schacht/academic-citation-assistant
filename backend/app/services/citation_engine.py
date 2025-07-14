@@ -110,11 +110,19 @@ class RankingService:
         else:
             return max(0.3, 1.0 - (age * 0.02))  # Decrease by 2% per year, min 0.3
             
-    def rank_results(self, results: List[SearchResult], context: TextContext) -> List[Citation]:
+    def rank_results(self, results: List[SearchResult], context: TextContext, max_chunks_per_paper: int = 2) -> List[Citation]:
         """Rank search results and convert to citations."""
         citations = []
+        paper_chunk_counts = {}  # Track how many chunks we've included per paper
+        
+        # First, sort results by similarity to process best matches first
+        results.sort(key=lambda x: x.similarity, reverse=True)
         
         for result in results:
+            # Check if we've already included enough chunks from this paper
+            if paper_chunk_counts.get(result.paper_id, 0) >= max_chunks_per_paper:
+                continue
+                
             relevance = self.calculate_relevance(result, context)
             
             # Determine confidence level
@@ -150,6 +158,9 @@ class RankingService:
                 section_title=result.metadata.get("section", "")
             )
             citations.append(citation)
+            
+            # Update chunk count for this paper
+            paper_chunk_counts[result.paper_id] = paper_chunk_counts.get(result.paper_id, 0) + 1
             
         # Sort by confidence
         citations.sort(key=lambda x: x.confidence, reverse=True)
@@ -206,7 +217,7 @@ class CitationEngine:
         
         # Use default options if not provided
         if options is None:
-            options = SearchOptions(limit=20, min_similarity=0.5)
+            options = SearchOptions(limit=30, min_similarity=0.4)  # Get more results, filter later
             
         # Check cache first
         cache_key = f"citations:{user_id}:{hash(text)}"

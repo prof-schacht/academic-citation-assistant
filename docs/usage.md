@@ -9,13 +9,25 @@
    - `/api/health` - Basic health check
    - `/api/health/ready` - Readiness probe (checks Redis)
    - `/api/health/live` - Liveness probe
+   - Document CRUD operations
+   - Paper upload and processing
+   - Real-time citation suggestions via WebSocket
 
 2. **Frontend**:
    - React app with TypeScript and TailwindCSS
-   - Basic landing page with project information
-   - Responsive design
+   - Document editor with Lexical
+   - Real-time citation suggestions
+   - Paper library with drag-and-drop upload
+   - Document management interface
 
-3. **Infrastructure**:
+3. **Core Features**:
+   - **Document Editing**: Rich text editor with auto-save
+   - **Citation Suggestions**: Real-time suggestions as you type
+   - **Paper Upload**: Drag-and-drop PDF/DOCX/TXT files (max 50MB)
+   - **Text Extraction**: Using Microsoft's MarkItDown with OCR support
+   - **Smart Search**: Vector similarity search with pgvector
+
+4. **Infrastructure**:
    - Docker Compose setup for local development
    - PostgreSQL with pgvector extension
    - Redis for caching
@@ -45,6 +57,60 @@
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
+
+4. Populate test papers (for citation suggestions):
+   ```bash
+   docker-compose exec backend python scripts/populate_test_papers_v2.py
+   ```
+
+## Using the Application
+
+### Creating and Editing Documents
+
+1. Navigate to http://localhost:3000
+2. Click "Get Started" to go to the documents page
+3. Click "+ New Document" to create a new document
+4. Start typing in the editor - citation suggestions will appear automatically in the right panel
+
+### Real-time Citation Suggestions
+
+As you type about academic topics, the system will:
+- Analyze your text in real-time
+- Search for relevant papers in the database
+- Display suggestions ranked by relevance
+- Update suggestions as you move between sentences
+
+**Tips for better suggestions:**
+- Type complete sentences about specific topics
+- Use academic terminology (e.g., "transformer architectures", "BERT model")
+- The system needs at least 10 characters to trigger suggestions
+
+### Uploading Papers to Your Library
+
+1. Go to Documents page and click "📚 Paper Library"
+2. Click "+ Upload Papers"
+3. Drag and drop files or click to browse:
+   - Supported formats: PDF, DOCX, DOC, TXT, RTF
+   - Maximum file size: 50MB
+   - Multiple files can be uploaded at once
+
+4. Files will be processed automatically:
+   - Text extraction using MarkItDown (includes OCR for scanned PDFs)
+   - Metadata extraction (title, authors, abstract)
+   - Text chunking for vector search
+   - Embedding generation for similarity matching
+
+5. Monitor processing status in the library view:
+   - ⏳ Processing: File is being analyzed
+   - ✅ Indexed: Ready for citation matching
+   - ❌ Error: Processing failed (can retry)
+
+### Managing Your Paper Library
+
+- **Search**: Use the search bar to find papers by title or author
+- **Filter**: Show only indexed, processing, or error papers
+- **Sort**: Order by date, title, or citation count
+- **Actions**: Edit metadata or delete papers
 
 ### Local Development (Without Docker)
 

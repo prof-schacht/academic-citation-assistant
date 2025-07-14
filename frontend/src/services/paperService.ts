@@ -1,4 +1,4 @@
-import { apiRequest } from './api';
+import { api } from './api';
 
 export interface Paper {
   id: string;
@@ -28,10 +28,8 @@ class PaperService {
 
   async getUserPapers(): Promise<Paper[]> {
     try {
-      const response = await apiRequest('/papers', {
-        method: 'GET'
-      });
-      return response;
+      const response = await api.get('/papers');
+      return response.data;
     } catch (error) {
       console.error('Failed to fetch papers:', error);
       return [];
@@ -54,17 +52,9 @@ class PaperService {
         status: 'uploading'
       });
 
-      // Upload file
-      const response = await fetch('http://localhost:8000/api/papers/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        // Note: Don't set Content-Type header, let browser set it with boundary
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
+      // Upload file using api instance
+      // Note: Don't set Content-Type header, axios will set it automatically with boundary
+      const response = await api.post('/papers/upload', formData);
 
       // Notify progress: processing
       this.notifyProgress({
@@ -74,7 +64,7 @@ class PaperService {
         status: 'processing'
       });
 
-      const paper = await response.json();
+      const paper = response.data;
 
       // Notify progress: completed
       this.notifyProgress({
@@ -99,29 +89,24 @@ class PaperService {
   }
 
   async getPaper(paperId: string): Promise<Paper> {
-    return await apiRequest(`/papers/${paperId}`, {
-      method: 'GET'
-    });
+    const response = await api.get(`/papers/${paperId}`);
+    return response.data;
   }
 
   async updatePaper(paperId: string, updates: Partial<Paper>): Promise<Paper> {
-    return await apiRequest(`/papers/${paperId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(updates)
-    });
+    const response = await api.patch(`/papers/${paperId}`, updates);
+    return response.data;
   }
 
   async deletePaper(paperId: string): Promise<void> {
-    await apiRequest(`/papers/${paperId}`, {
-      method: 'DELETE'
-    });
+    await api.delete(`/papers/${paperId}`);
   }
 
   async searchPapers(query: string): Promise<Paper[]> {
-    return await apiRequest('/papers/search', {
-      method: 'GET',
+    const response = await api.get('/papers/search', {
       params: { q: query }
     });
+    return response.data;
   }
 
   // Progress tracking

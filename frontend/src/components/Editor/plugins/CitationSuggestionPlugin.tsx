@@ -26,24 +26,28 @@ export function CitationSuggestionPlugin({
 
   // Initialize WebSocket connection
   useEffect(() => {
+    console.log('[CitationPlugin] Initializing WebSocket for user:', userId);
     const wsClient = getCitationWebSocketClient(userId);
     wsClientRef.current = wsClient;
 
     // Set up callbacks
     wsClient.onSuggestions((suggestions) => {
+      console.log('[CitationPlugin] Received suggestions:', suggestions.length);
       onSuggestionsUpdate(suggestions);
     });
 
     wsClient.onError((error) => {
-      console.error('Citation WebSocket error:', error);
+      console.error('[CitationPlugin] WebSocket error:', error);
     });
 
     wsClient.onConnect(() => {
+      console.log('[CitationPlugin] WebSocket connected');
       setIsConnected(true);
       onConnectionChange?.(true);
     });
 
     wsClient.onDisconnect(() => {
+      console.log('[CitationPlugin] WebSocket disconnected');
       setIsConnected(false);
       onConnectionChange?.(false);
     });
@@ -60,6 +64,7 @@ export function CitationSuggestionPlugin({
   const requestSuggestions = useRef(
     debounce((editorState: EditorState) => {
       if (!wsClientRef.current || !isConnected) {
+        console.log('[CitationPlugin] Not connected, skipping suggestion request');
         return;
       }
 
@@ -86,6 +91,8 @@ export function CitationSuggestionPlugin({
         }
 
         lastTextRef.current = currentText;
+        
+        console.log('[CitationPlugin] Requesting suggestions for:', currentText);
         
         // Request suggestions
         wsClientRef.current.requestSuggestions(currentText, context);

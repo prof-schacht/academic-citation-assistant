@@ -58,6 +58,7 @@ export class CitationWebSocketClient {
     }
 
     const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8000/ws/citations?user_id=${this.userId}`;
+    console.log('[WebSocket] Connecting to:', wsUrl);
     
     try {
       this.socket = new WebSocket(wsUrl);

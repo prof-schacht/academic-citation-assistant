@@ -215,7 +215,54 @@ academic-citation-assistant/
 3. Frontend automatically connects when editor is loaded
 
 ### Known Limitations
-- Paper database needs to be populated for suggestions to work
 - Redis caching not fully implemented yet
 - External API integrations (Semantic Scholar, PubMed) pending
 - Need to implement paper upload functionality first
+
+## Testing the Full System (Citation Suggestions)
+
+### Prerequisites
+1. **Populate test data** (one-time setup):
+   ```bash
+   cd backend
+   python scripts/populate_test_papers_v2.py
+   ```
+   This adds 10 academic papers with embeddings to the database.
+
+2. **Start the backend**:
+   ```bash
+   cd backend
+   python run.py
+   # Backend runs on http://localhost:8000
+   ```
+
+3. **Start the frontend** (in another terminal):
+   ```bash
+   cd frontend
+   npm run dev
+   # Frontend runs on http://localhost:3000
+   ```
+
+### Testing Citation Suggestions
+1. Open http://localhost:3000 in your browser
+2. Create a new document or open an existing one
+3. Check the browser console (F12) for WebSocket connection logs
+4. Start typing about:
+   - "transformer architectures"
+   - "BERT language model"
+   - "deep learning for NLP"
+   - "attention mechanisms"
+5. After typing ~10+ characters and pausing for 500ms, you should see:
+   - Connection status indicator (green = connected)
+   - Citation suggestions appearing in the right panel
+   - Suggestions ranked by confidence (High/Medium/Low)
+
+### Debugging Tips
+- Check browser console for:
+  - `[WebSocket] Connecting to: ws://localhost:8000/ws/citations?user_id=test-user`
+  - `[CitationPlugin] WebSocket connected`
+  - `[CitationPlugin] Requesting suggestions for: <your text>`
+  - `[CitationPlugin] Received suggestions: <count>`
+- Check backend logs for WebSocket connections and embedding generation
+- Ensure both backend and frontend are running
+- Make sure test data is populated (check with `python scripts/test_full_system.py`)

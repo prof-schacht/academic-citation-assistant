@@ -176,11 +176,50 @@ curl -X PUT http://localhost:8000/api/documents/{document_id} \
 curl -X DELETE http://localhost:8000/api/documents/{document_id}
 ```
 
+### Real-time Citation API (NEW)
+
+**WebSocket endpoint for real-time suggestions:**
+```
+ws://localhost:8000/ws/citations?user_id={user_id}
+```
+
+**Message format for requesting suggestions:**
+```json
+{
+  "type": "suggest",
+  "text": "Machine learning has revolutionized...",
+  "context": {
+    "currentSentence": "Machine learning has revolutionized...",
+    "previousSentence": "Previous sentence text",
+    "paragraph": "Full paragraph text",
+    "cursorPosition": 42
+  }
+}
+```
+
+**Response format:**
+```json
+{
+  "type": "suggestions",
+  "results": [
+    {
+      "paperId": "paper-123",
+      "title": "Deep Learning in Natural Language Processing",
+      "authors": ["Smith, J.", "Doe, A."],
+      "year": 2023,
+      "abstract": "This paper presents...",
+      "confidence": 0.92,
+      "citationStyle": "inline",
+      "displayText": "(Smith et al., 2023)"
+    }
+  ]
+}
+```
+
 ### Coming Soon
-- Citation suggestion endpoints
 - Paper upload and processing
 - User authentication
-- Real-time WebSocket connections
+- External API integrations (Semantic Scholar, PubMed)
 
 ## Troubleshooting
 
@@ -209,13 +248,31 @@ curl -X DELETE http://localhost:8000/api/documents/{document_id}
 
 ## Next Features (In Development)
 
-- Database models and migrations
+- ✅ Database models and migrations (DONE)
+- ✅ Document editor with Lexical (DONE)
+- ✅ Real-time citation suggestions (DONE)
 - Paper upload functionality
 - Text extraction from PDFs
-- Vector embeddings generation
-- Real-time citation suggestions
-- Document editor with Lexical
+- Vector embeddings for uploaded papers
+- External API integrations
+
+## Real-time Citation Features
+
+### How Citation Suggestions Work
+
+1. **Text Analysis**: As you type, the system analyzes your current sentence and surrounding context
+2. **Embedding Generation**: Your text is converted to a 384-dimensional vector using sentence-transformers
+3. **Vector Search**: The system searches for similar paper chunks using pgvector's cosine similarity
+4. **Ranking**: Results are ranked by multiple factors including relevance, quality, and recency
+5. **Real-time Delivery**: Suggestions are delivered via WebSocket in under 1 second
+
+### Performance Optimizations
+
+- **Debouncing**: Requests are debounced by 500ms to avoid overwhelming the system
+- **Caching**: Frequently requested embeddings are cached in memory
+- **Rate Limiting**: 60 requests per minute per user
+- **Connection Management**: Automatic reconnection with exponential backoff
 
 ---
 
-Last updated: 2025-07-13
+Last updated: 2025-07-14

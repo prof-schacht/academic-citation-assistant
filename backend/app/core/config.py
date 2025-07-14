@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")
+    
+    # WebSocket
+    websocket_rate_limit: int = Field(default=60)  # requests per minute
+    websocket_ping_interval: int = Field(default=30)  # seconds
+    websocket_timeout: int = Field(default=60)  # seconds
 
 
 # Create a global settings instance

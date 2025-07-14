@@ -20,14 +20,19 @@ import Toolbar from './Toolbar';
 import StatusBar from './StatusBar';
 import WordCountPlugin from './plugins/WordCountPlugin';
 import KeyboardShortcutsPlugin from './plugins/KeyboardShortcutsPlugin';
+import CitationSuggestionPlugin from './plugins/CitationSuggestionPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
+import type { CitationSuggestion } from '../../services/websocketService';
 
 interface EditorProps {
   documentId?: string;
   initialContent?: any;
   onSave?: (content: any, editorState?: EditorState) => void;
   autoSaveDelay?: number;
+  userId?: string;
+  onCitationSuggestionsUpdate?: (suggestions: CitationSuggestion[]) => void;
+  onCitationConnectionChange?: (connected: boolean) => void;
 }
 
 // Plugin to load initial content
@@ -83,6 +88,9 @@ const Editor: React.FC<EditorProps> = ({
   initialContent,
   onSave,
   autoSaveDelay = 2000,
+  userId = 'default-user',
+  onCitationSuggestionsUpdate,
+  onCitationConnectionChange,
 }) => {
   // const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -176,6 +184,13 @@ const Editor: React.FC<EditorProps> = ({
                 }
               }}
             />
+            {onCitationSuggestionsUpdate && (
+              <CitationSuggestionPlugin
+                userId={userId}
+                onSuggestionsUpdate={onCitationSuggestionsUpdate}
+                onConnectionChange={onCitationConnectionChange}
+              />
+            )}
           </div>
 
           {/* Status bar */}

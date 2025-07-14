@@ -1,51 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import type { CitationSuggestion } from '../../services/websocketService';
 
-interface Citation {
-  id: string;
-  title: string;
-  authors: string[];
-  year: number;
-  journal?: string;
-  abstract?: string;
-  relevanceScore: number;
-}
 
 interface CitationPanelProps {
   documentId: string;
   selectedText?: string;
+  suggestions?: CitationSuggestion[];
+  isConnected?: boolean;
 }
 
-const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText }) => {
-  const [citations, setCitations] = useState<Citation[]>([]);
+const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText, suggestions = [], isConnected = false }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'suggestions' | 'library'>('suggestions');
 
-  // Placeholder data for now
-  const placeholderCitations: Citation[] = [
-    {
-      id: '1',
-      title: 'Deep Learning for Natural Language Processing',
-      authors: ['Smith, J.', 'Doe, A.'],
-      year: 2023,
-      journal: 'Journal of AI Research',
-      relevanceScore: 0.95,
-    },
-    {
-      id: '2',
-      title: 'Advances in Neural Machine Translation',
-      authors: ['Johnson, M.', 'Lee, K.'],
-      year: 2023,
-      journal: 'Computational Linguistics',
-      relevanceScore: 0.87,
-    },
-  ];
 
-  const handleInsertCitation = (citation: Citation) => {
+  const handleInsertCitation = (citation: CitationSuggestion) => {
     console.log('Inserting citation:', citation);
     // TODO: Implement citation insertion into editor
   };
 
-  const handleAddToLibrary = (citation: Citation) => {
+  const handleAddToLibrary = (citation: CitationSuggestion) => {
     console.log('Adding to library:', citation);
     // TODO: Implement adding to library
   };
@@ -56,12 +30,20 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText 
       <div className="bg-white border-b border-gray-200">
         <div className="flex items-center justify-between p-4">
           <h2 className="text-lg font-semibold text-gray-900">Citations</h2>
-          <button
-            className="text-sm text-blue-600 hover:text-blue-700"
-            onClick={() => console.log('Search papers')}
-          >
-            Search papers
-          </button>
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center">
+              <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className="text-xs text-gray-500">
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+            <button
+              className="text-sm text-blue-600 hover:text-blue-700"
+              onClick={() => console.log('Search papers')}
+            >
+              Search papers
+            </button>
+          </div>
         </div>
         
         <div className="flex border-t border-gray-200">
@@ -112,11 +94,11 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText 
                   </div>
                 ))}
               </div>
-            ) : placeholderCitations.length > 0 ? (
+            ) : suggestions.length > 0 ? (
               <div className="space-y-3">
-                {placeholderCitations.map((citation) => (
+                {suggestions.map((citation) => (
                   <div
-                    key={citation.id}
+                    key={citation.paperId}
                     className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between">
@@ -130,7 +112,15 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText 
                         </p>
                         <div className="flex items-center space-x-4">
                           <span className="text-xs text-gray-500">
-                            Relevance: {Math.round(citation.relevanceScore * 100)}%
+                            Confidence: {Math.round(citation.confidence * 100)}%
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            citation.confidence > 0.85 ? 'bg-green-100 text-green-800' : 
+                            citation.confidence > 0.70 ? 'bg-yellow-100 text-yellow-800' : 
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {citation.confidence > 0.85 ? 'High' : 
+                             citation.confidence > 0.70 ? 'Medium' : 'Low'}
                           </span>
                         </div>
                       </div>

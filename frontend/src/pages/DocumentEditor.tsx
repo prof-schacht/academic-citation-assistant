@@ -6,6 +6,7 @@ import ExportDialog from '../components/ExportDialog';
 import { documentService } from '../services/documentService';
 import type { DocumentType } from '../services/documentService';
 import type { EditorState } from 'lexical';
+import type { CitationSuggestion } from '../services/websocketService';
 
 // Global counter for debugging
 let effectRunCount = 0;
@@ -19,6 +20,8 @@ const DocumentEditor: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(true);
+  const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion[]>([]);
+  const [citationConnectionStatus, setCitationConnectionStatus] = useState(false);
   const editorStateRef = useRef<EditorState | null>(null);
 
   useEffect(() => {
@@ -226,13 +229,20 @@ const DocumentEditor: React.FC = () => {
             initialContent={document.content || undefined}
             onSave={handleSave}
             autoSaveDelay={2000}
+            userId="test-user"
+            onCitationSuggestionsUpdate={setCitationSuggestions}
+            onCitationConnectionChange={setCitationConnectionStatus}
           />
         </div>
         
         {/* Citation suggestions panel - 40% width */}
         {showCitationPanel && (
           <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
-            <CitationPanel documentId={document.id} />
+            <CitationPanel 
+      documentId={document.id} 
+      suggestions={citationSuggestions}
+      isConnected={citationConnectionStatus}
+    />
           </div>
         )}
       </div>

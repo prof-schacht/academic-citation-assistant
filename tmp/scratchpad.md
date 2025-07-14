@@ -141,3 +141,81 @@ academic-citation-assistant/
 - Frontend runs with TailwindCSS styling
 - Docker Compose working for all services
 - Database schema fully implemented and migrated
+
+## 2025-07-14: Real-time Citation Engine Implementation (Issue #4)
+
+### Completed Tasks
+- ✅ Created WebSocket server infrastructure (`/ws/citations` endpoint)
+- ✅ Implemented text analysis service for extracting context
+- ✅ Created embedding service with sentence-transformers
+- ✅ Implemented vector search service for pgvector queries
+- ✅ Built ranking and confidence scoring algorithm
+- ✅ Created WebSocket client for frontend
+- ✅ Integrated citation suggestions with Lexical editor
+- ✅ Updated CitationPanel to display real-time suggestions
+
+### Backend Components Added
+1. **WebSocket Handler** (`app/api/websocket.py`):
+   - Real-time citation endpoint with rate limiting
+   - Connection management for multiple users
+   - Message handling for suggestion requests
+
+2. **Text Analysis Service** (`app/services/text_analysis.py`):
+   - Context extraction from editor content
+   - Sentence tokenization using NLTK
+   - Text preprocessing and change detection
+
+3. **Embedding Service** (`app/services/embedding.py`):
+   - Text embedding generation using sentence-transformers
+   - In-memory LRU caching for performance
+   - Async batch processing support
+
+4. **Vector Search Service** (`app/services/vector_search.py`):
+   - pgvector similarity search implementation
+   - Multi-index search support (local + future external APIs)
+   - Batch search capabilities
+
+5. **Citation Engine** (`app/services/citation_engine.py`):
+   - Main orchestration service
+   - Confidence scoring algorithm
+   - Ranking based on multiple factors:
+     - Cosine similarity (40%)
+     - Contextual relevance (25%)
+     - Paper quality metrics (15%)
+     - Recency bias (10%)
+     - User preferences (10%)
+
+### Frontend Components Added
+1. **WebSocket Service** (`src/services/websocketService.ts`):
+   - Auto-reconnection with exponential backoff
+   - Message queuing for offline handling
+   - Connection status monitoring
+
+2. **Citation Suggestion Plugin** (`src/components/Editor/plugins/CitationSuggestionPlugin.tsx`):
+   - Lexical plugin for real-time suggestions
+   - Debounced text analysis (500ms)
+   - Context extraction from editor state
+
+3. **Updated Components**:
+   - Editor component now supports citation callbacks
+   - CitationPanel displays real-time suggestions with confidence levels
+   - Connection status indicator in UI
+
+### Testing the Implementation
+1. Start the backend with updated dependencies:
+   ```bash
+   cd backend
+   uv sync
+   python run.py
+   ```
+
+2. The WebSocket endpoint is available at:
+   - `ws://localhost:8000/ws/citations?user_id=<user_id>`
+
+3. Frontend automatically connects when editor is loaded
+
+### Known Limitations
+- Paper database needs to be populated for suggestions to work
+- Redis caching not fully implemented yet
+- External API integrations (Semantic Scholar, PubMed) pending
+- Need to implement paper upload functionality first

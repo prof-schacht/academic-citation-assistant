@@ -281,3 +281,50 @@ Fixed in two files:
    - Already fixed to: `import type { EditorState } from 'lexical';`
 
 The issue was that EditorState is a TypeScript type, not a runtime value, so it needs to be imported as a type import.
+
+3. **frontend/src/components/Editor/Editor.tsx** (line 23)
+   - Changed: `import CitationSuggestionPlugin from './plugins/CitationSuggestionPlugin';`
+   - To: `import { CitationSuggestionPlugin } from './plugins/CitationSuggestionPlugin';`
+
+## Docker Environment Testing (2025-07-14)
+
+### Rebuilding Docker Environment
+To rebuild and test the Docker environment after code changes:
+
+```bash
+# Stop and rebuild everything
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+
+# Run migrations (if needed)
+docker-compose exec backend alembic upgrade head
+
+# Populate test data (if needed)
+docker-compose exec backend python scripts/populate_test_papers_v2.py
+```
+
+### Access Points
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+- Health Check: http://localhost:8000/api/health/
+
+### Testing Citation Suggestions with Docker
+1. Ensure all services are running: `docker-compose ps`
+2. Open http://localhost:3000 in your browser
+3. Create a new document or open an existing one
+4. Start typing about machine learning topics:
+   - "transformer architectures"
+   - "BERT language model"
+   - "attention mechanisms"
+   - "deep learning for NLP"
+5. After typing ~10+ characters and pausing for 500ms, you should see:
+   - WebSocket connection status (green = connected)
+   - Citation suggestions in the right panel
+   - Suggestions ranked by confidence
+
+### Troubleshooting Docker
+- Check logs: `docker-compose logs -f [service]`
+- Restart specific service: `docker-compose restart [service]`
+- Full reset: `docker-compose down -v` (removes volumes/data)

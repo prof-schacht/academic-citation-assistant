@@ -328,3 +328,42 @@ docker-compose exec backend python scripts/populate_test_papers_v2.py
 - Check logs: `docker-compose logs -f [service]`
 - Restart specific service: `docker-compose restart [service]`
 - Full reset: `docker-compose down -v` (removes volumes/data)
+
+## 2025-07-14: Paper Upload Implementation (Issue #6)
+
+### Completed Features
+- ✅ Created FileUpload component with drag-and-drop
+- ✅ File validation (PDF/DOCX/TXT/RTF, max 50MB)
+- ✅ Backend upload endpoint with multipart/form-data
+- ✅ Integrated MarkItDown for text extraction with OCR
+- ✅ Paper processing service with metadata extraction
+- ✅ Text chunking (500 words with 50-word overlap)
+- ✅ Duplicate detection via SHA-256 file hash
+- ✅ Paper Library UI with search/filter/sort
+- ✅ Background processing with status tracking
+
+### Technical Implementation
+1. **Frontend Components**:
+   - `FileUpload.tsx`: Drag-and-drop with react-dropzone
+   - `PaperLibrary.tsx`: Library management interface
+   - `paperService.ts`: API communication service
+
+2. **Backend Services**:
+   - `app/api/papers.py`: Upload and management endpoints
+   - `app/services/paper_processor.py`: MarkItDown integration
+   - `app/schemas/paper.py`: Request/response schemas
+
+3. **Key Features**:
+   - Uses Microsoft MarkItDown for superior text extraction
+   - Supports OCR for scanned PDFs automatically
+   - Extracts metadata from document structure
+   - Generates embeddings for similarity search
+   - Async processing with error handling
+
+### Testing Paper Upload
+1. Navigate to http://localhost:3000/documents
+2. Click "📚 Paper Library"
+3. Click "+ Upload Papers"
+4. Drag and drop PDF/DOCX files
+5. Monitor processing status
+6. Uploaded papers will be searchable for citations

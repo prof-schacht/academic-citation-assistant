@@ -1,5 +1,28 @@
 # Usage Guide - Academic Citation Assistant
 
+## Recent Updates (July 14, 2025)
+
+### New Features:
+1. **Citation Insertion** - Click "Insert" to add citations directly into your document
+   - Format: `(Author et al., Year)` for papers with metadata
+   - Fallback: `[paper-id]` for papers without metadata
+2. **Improved Metadata Extraction** - Better title and author detection from PDFs
+3. **Real-time Paper Processing** - Papers show chunk counts and processing status
+4. **Auto-refresh** - Paper library updates every 3 seconds while processing
+
+### Fixed Issues:
+- Paper upload now works correctly with multipart form data
+- Chunk counts display properly (was showing 0 before)
+- MarkItDown compatibility fixed for latest version
+- Field name consistency between frontend and backend
+
+## API Configuration
+
+The application uses the following API configuration:
+- Frontend API Base URL: `http://localhost:8000/api` (configured via `VITE_API_URL` environment variable)
+- All service calls should use relative paths without the `/api` prefix (e.g., `/papers/`, `/documents/`)
+- The axios instance in `frontend/src/services/api.ts` automatically prepends the base URL
+
 ## Current Implementation Status (Phase I - In Progress)
 
 ### What's Working Now
@@ -23,9 +46,11 @@
 3. **Core Features**:
    - **Document Editing**: Rich text editor with auto-save
    - **Citation Suggestions**: Real-time suggestions as you type
+   - **Citation Insertion**: Click to insert formatted citations at cursor position
    - **Paper Upload**: Drag-and-drop PDF/DOCX/TXT files (max 50MB)
    - **Text Extraction**: Using Microsoft's MarkItDown with OCR support
    - **Smart Search**: Vector similarity search with pgvector
+   - **Metadata Extraction**: Automatic title, author, and year extraction from PDFs
 
 4. **Infrastructure**:
    - Docker Compose setup for local development

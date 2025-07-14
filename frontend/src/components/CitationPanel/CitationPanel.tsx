@@ -7,16 +7,19 @@ interface CitationPanelProps {
   selectedText?: string;
   suggestions?: CitationSuggestion[];
   isConnected?: boolean;
+  onInsertCitation?: (citation: CitationSuggestion) => void;
 }
 
-const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText, suggestions = [], isConnected = false }) => {
+const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText, suggestions = [], isConnected = false, onInsertCitation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'suggestions' | 'library'>('suggestions');
 
 
   const handleInsertCitation = (citation: CitationSuggestion) => {
     console.log('Inserting citation:', citation);
-    // TODO: Implement citation insertion into editor
+    if (onInsertCitation) {
+      onInsertCitation(citation);
+    }
   };
 
   const handleAddToLibrary = (citation: CitationSuggestion) => {
@@ -107,7 +110,9 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText,
                           {citation.title}
                         </h4>
                         <p className="text-xs text-gray-600 mb-2">
-                          {citation.authors.join(', ')} • {citation.year}
+                          {citation.authors && citation.authors.length > 0 
+                            ? citation.authors.join(', ') 
+                            : 'Unknown authors'} • {citation.year || 'No year'}
                           {citation.journal && ` • ${citation.journal}`}
                         </p>
                         <div className="flex items-center space-x-4">

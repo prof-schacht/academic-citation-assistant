@@ -3,16 +3,16 @@ import { api } from './api';
 export interface Paper {
   id: string;
   title: string;
-  authors: string[];
-  year: number;
+  authors: string[] | null;
+  year: number | null;
   journal?: string;
   doi?: string;
   abstract?: string;
-  citationCount?: number;
-  chunkCount?: number;
+  citation_count?: number;
+  chunk_count?: number;
   status: 'processing' | 'indexed' | 'error';
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface UploadProgress {
@@ -28,8 +28,8 @@ class PaperService {
 
   async getUserPapers(): Promise<Paper[]> {
     try {
-      const response = await api.get('/papers');
-      return response.data;
+      const response = await api.get('/papers/');
+      return response.data.papers || response.data;
     } catch (error) {
       console.error('Failed to fetch papers:', error);
       return [];
@@ -53,8 +53,12 @@ class PaperService {
       });
 
       // Upload file using api instance
-      // Note: Don't set Content-Type header, axios will set it automatically with boundary
-      const response = await api.post('/papers/upload', formData);
+      // Override the default Content-Type header to let axios set it with boundary
+      const response = await api.post('/papers/upload', formData, {
+        headers: {
+          'Content-Type': undefined as any,
+        },
+      });
 
       // Notify progress: processing
       this.notifyProgress({
@@ -106,7 +110,7 @@ class PaperService {
     const response = await api.get('/papers/search', {
       params: { q: query }
     });
-    return response.data;
+    return response.data.papers || response.data;
   }
 
   // Progress tracking

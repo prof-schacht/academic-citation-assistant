@@ -45,6 +45,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
       setUploadQueue(prev => [...prev, ...newUploadFiles]);
       onFilesSelected(validFiles);
+      
+      // Clear the upload queue after a delay to show completion
+      setTimeout(() => {
+        setUploadQueue([]);
+      }, 2000);
     }
 
     // Handle rejected files
@@ -55,21 +60,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
-    accept: acceptedFormats.reduce((acc, format) => {
-      // Map file extensions to MIME types
-      const mimeTypes: { [key: string]: string[] } = {
-        '.pdf': ['application/pdf'],
-        '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        '.doc': ['application/msword'],
-        '.txt': ['text/plain'],
-        '.rtf': ['application/rtf', 'text/rtf']
-      };
-      
-      if (mimeTypes[format]) {
-        acc[format] = mimeTypes[format];
-      }
-      return acc;
-    }, {} as { [key: string]: string[] }),
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
+      'text/plain': ['.txt'],
+      'application/rtf': ['.rtf']
+    },
     maxFiles,
     maxSize: maxFileSize,
     onDragEnter: () => setIsDragActive(true),

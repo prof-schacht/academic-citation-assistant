@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models import Paper
 from app.services.embedding import EmbeddingService
-from app.services.text_chunking import TextChunkingService
+# TextChunkingService is defined in this file
 from app.core.config import settings
 import logging
 
@@ -106,7 +106,7 @@ class PaperProcessorService:
         """Extract text from file using MarkItDown."""
         try:
             result = self.markitdown.convert(file_path)
-            return result.text
+            return result.text_content
         except Exception as e:
             logger.error(f"MarkItDown extraction failed: {e}")
             return ""
@@ -125,11 +125,62 @@ class PaperProcessorService:
         
         lines = markdown_text.split('\n')
         
-        # Extract title (first # heading)
+        # Extract title - try multiple strategies
+        # 1. Look for first # heading
         for line in lines:
             if line.startswith('# ') and 'title' not in metadata:
                 metadata['title'] = line[2:].strip()
                 break
+        
+        # 2. If no heading found, look for title-like patterns in first 50 lines
+        if 'title' not in metadata:
+            # Look for the first substantial text block
+            found_content = False
+            potential_titles = []
+            
+            for i, line in enumerate(lines[:50]):
+                stripped = line.strip()
+                
+                # Skip empty lines
+                if not stripped:
+                    continue
+                
+                # Skip common headers/footers
+                if any(skip in stripped.lower() for skip in ['page', 'copyright', 'doi:', 'isbn', 'issn', 'vol.', 'no.']):
+                    continue
+                
+                # Skip URLs and emails
+                if any(pattern in stripped for pattern in ['http://', 'https://', 'www.', '@']):
+                    continue
+                
+                # If we find a substantial line (10+ chars), consider it
+                if len(stripped) >= 10:
+                    found_content = True
+                    
+                    # Check if it looks like a title (no ending punctuation, reasonable length)
+                    if (len(stripped) < 200 and 
+                        not stripped.endswith(('.', ',', ';', ':', '?', '!')) and
+                        not stripped.startswith(('Figure', 'Table', 'Algorithm'))):
+                        
+                        # Give higher priority to lines that are followed by author-like patterns
+                        if i + 1 < len(lines):
+                            next_line = lines[i + 1].strip()
+                            if next_line and (',' in next_line or ' and ' in next_line.lower()):
+                                metadata['title'] = stripped
+                                break
+                        
+                        # Also consider lines that are in all caps or title case
+                        words = stripped.split()
+                        if len(words) >= 2:
+                            # Check if most words start with capital (title case)
+                            capitalized_words = sum(1 for word in words if word and word[0].isupper())
+                            if capitalized_words >= len(words) * 0.7:
+                                potential_titles.append(stripped)
+                    
+                    # If we've found substantial content but no title after 10 lines, use the best candidate
+                    if found_content and i > 10 and potential_titles and 'title' not in metadata:
+                        metadata['title'] = potential_titles[0]
+                        break
         
         # Extract abstract (look for Abstract section)
         abstract_pattern = re.compile(r'^#+\s*Abstract\s*$', re.IGNORECASE)
@@ -156,10 +207,39 @@ class PaperProcessorService:
                 # Check next few lines for author-like patterns
                 for i in range(title_index + 1, min(title_index + 10, len(lines))):
                     line = lines[i].strip()
-                    if ',' in line and not line.startswith('#'):
-                        # Might be authors
-                        potential_authors = [a.strip() for a in line.split(',')]
-                        if all(len(a.split()) <= 4 for a in potential_authors):  # Names are usually 1-4 words
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Skip lines that are clearly not authors
+                    if any(skip in line.lower() for skip in ['abstract', 'introduction', 'keywords', 'doi:', 'copyright']):
+                        continue
+                    
+                    # Look for author patterns
+                    # 1. Lines with commas (e.g., "John Doe, Jane Smith, Bob Johnson")
+                    if ',' in line:
+                        # Clean up the line - remove numbers, affiliations in parentheses
+                        clean_line = re.sub(r'\([^)]*\)', '', line)  # Remove parentheses
+                        clean_line = re.sub(r'\d+', '', clean_line)  # Remove numbers
+                        clean_line = re.sub(r'\*', '', clean_line)    # Remove asterisks
+                        
+                        potential_authors = [a.strip() for a in clean_line.split(',')]
+                        # Filter out empty entries and check if they look like names
+                        potential_authors = [a for a in potential_authors if a and len(a.split()) <= 5 and len(a) > 2]
+                        
+                        if len(potential_authors) >= 1:
+                            metadata['authors'] = potential_authors
+                            break
+                    
+                    # 2. Lines with "and" (e.g., "John Doe and Jane Smith")
+                    elif ' and ' in line.lower():
+                        clean_line = re.sub(r'\([^)]*\)', '', line)
+                        clean_line = re.sub(r'\d+', '', clean_line)
+                        clean_line = re.sub(r'\*', '', clean_line)
+                        
+                        potential_authors = re.split(r'\s+and\s+', clean_line, flags=re.IGNORECASE)
+                        potential_authors = [a.strip() for a in potential_authors if a.strip() and len(a.strip().split()) <= 5]
+                        
+                        if len(potential_authors) >= 1:
                             metadata['authors'] = potential_authors
                             break
         

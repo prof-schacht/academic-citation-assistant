@@ -23,7 +23,7 @@ markitdown = MarkItDown()
 # File upload settings from Issue #6
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.doc', '.txt', '.rtf'}
-UPLOAD_DIR = os.path.join(settings.data_dir, "uploads")
+UPLOAD_DIR = settings.upload_dir
 
 
 @router.post("/upload", response_model=PaperResponse)
@@ -64,8 +64,12 @@ async def upload_paper(
     existing_paper = existing_paper.scalar_one_or_none()
     
     if existing_paper:
-        # Return existing paper if duplicate
-        return existing_paper
+        # Return existing paper if duplicate with status
+        return PaperResponse(
+            **existing_paper.__dict__,
+            status='indexed' if existing_paper.is_processed else ('error' if existing_paper.processing_error else 'processing'),
+            chunk_count=0
+        )
     
     # Save file to disk
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -94,7 +98,12 @@ async def upload_paper(
         file_path=file_path
     )
     
-    return paper
+    # Return paper with status
+    return PaperResponse(
+        **paper.__dict__,
+        status='processing',
+        chunk_count=0
+    )
 
 
 @router.get("/", response_model=PaperListResponse)
@@ -175,7 +184,18 @@ async def get_paper(
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
     
-    return paper
+    # Compute chunk count
+    chunk_count = 0
+    if paper.is_processed and paper.full_text:
+        word_count = len(paper.full_text.split())
+        chunk_count = max(1, word_count // 500)
+    
+    # Return with computed status
+    return PaperResponse(
+        **paper.__dict__,
+        status='indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
+        chunk_count=chunk_count
+    )
 
 
 @router.patch("/{paper_id}", response_model=PaperResponse)
@@ -198,7 +218,18 @@ async def update_paper(
     await db.commit()
     await db.refresh(paper)
     
-    return paper
+    # Compute chunk count
+    chunk_count = 0
+    if paper.is_processed and paper.full_text:
+        word_count = len(paper.full_text.split())
+        chunk_count = max(1, word_count // 500)
+    
+    # Return with computed status
+    return PaperResponse(
+        **paper.__dict__,
+        status='indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
+        chunk_count=chunk_count
+    )
 
 
 @router.delete("/{paper_id}")

@@ -6,13 +6,13 @@ import { paperService } from '../services/paperService';
 interface Paper {
   id: string;
   title: string;
-  authors: string[];
-  year: number;
+  authors: string[] | null;
+  year: number | null;
   journal?: string;
-  citationCount?: number;
-  chunkCount?: number;
+  citation_count?: number;
+  chunk_count?: number;
   status: 'processing' | 'indexed' | 'error';
-  createdAt: string;
+  created_at: string;
 }
 
 const PaperLibrary: React.FC = () => {
@@ -26,32 +26,55 @@ const PaperLibrary: React.FC = () => {
 
   useEffect(() => {
     loadPapers();
+    
+    // Poll for updates every 3 seconds while any papers are processing
+    const interval = setInterval(() => {
+      loadPapers();
+    }, 3000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const loadPapers = async () => {
     try {
-      setIsLoading(true);
       const userPapers = await paperService.getUserPapers();
       setPapers(userPapers);
     } catch (error) {
       console.error('Failed to load papers:', error);
     } finally {
-      setIsLoading(false);
+      if (isLoading) {
+        setIsLoading(false);
+      }
+    }
+  };
+  
+  const handleDeletePaper = async (paperId: string) => {
+    if (!confirm('Are you sure you want to delete this paper?')) {
+      return;
+    }
+    
+    try {
+      await paperService.deletePaper(paperId);
+      await loadPapers();
+    } catch (error) {
+      console.error('Failed to delete paper:', error);
+      alert('Failed to delete paper');
     }
   };
 
   const handleFilesSelected = async (files: File[]) => {
     console.log('Files selected for upload:', files);
-    // TODO: Implement file upload to backend
-    // This will be connected to the backend upload endpoint
     try {
       for (const file of files) {
         await paperService.uploadPaper(file);
       }
-      // Reload papers after upload
-      loadPapers();
+      // Immediately reload papers after upload to show processing status
+      await loadPapers();
+      // Close the upload section
+      setShowUpload(false);
     } catch (error) {
       console.error('Upload failed:', error);
+      alert('Failed to upload file. Please try again.');
     }
   };
 
@@ -62,7 +85,7 @@ const PaperLibrary: React.FC = () => {
         const query = searchQuery.toLowerCase();
         return (
           paper.title.toLowerCase().includes(query) ||
-          paper.authors.some(author => author.toLowerCase().includes(query))
+          (paper.authors && paper.authors.some(author => author.toLowerCase().includes(query)))
         );
       }
       return true;
@@ -72,10 +95,10 @@ const PaperLibrary: React.FC = () => {
         case 'title':
           return a.title.localeCompare(b.title);
         case 'citations':
-          return (b.citationCount || 0) - (a.citationCount || 0);
+          return (b.citation_count || 0) - (a.citation_count || 0);
         case 'date':
         default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
     });
 
@@ -188,17 +211,21 @@ const PaperLibrary: React.FC = () => {
                         </h3>
                       </div>
                       <div className="mt-1 text-sm text-gray-600">
-                        {paper.authors.slice(0, 3).join(', ')}
-                        {paper.authors.length > 3 && ' et al.'}
-                        {' • '}
-                        {paper.year}
+                        {paper.authors && paper.authors.length > 0 ? (
+                          <>
+                            {paper.authors.slice(0, 3).join(', ')}
+                            {paper.authors.length > 3 && ' et al.'}
+                            {' • '}
+                          </>
+                        ) : null}
+                        {paper.year || 'No year'}
                         {paper.journal && ` • ${paper.journal}`}
-                        {paper.citationCount !== undefined && ` • ${paper.citationCount.toLocaleString()} citations`}
+                        {paper.citation_count !== undefined && ` • ${paper.citation_count.toLocaleString()} citations`}
                       </div>
                       <div className="mt-2 flex items-center space-x-4 text-sm">
                         {paper.status === 'indexed' ? (
                           <span className="text-green-600">
-                            ✓ Fully indexed • {paper.chunkCount || 0} chunks
+                            ✓ Fully indexed • {paper.chunk_count || 0} chunks
                           </span>
                         ) : paper.status === 'processing' ? (
                           <span className="text-yellow-600">
@@ -227,7 +254,7 @@ const PaperLibrary: React.FC = () => {
                         title="Delete"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // TODO: Delete paper
+                          handleDeletePaper(paper.id);
                         }}
                       >
                         🗑️

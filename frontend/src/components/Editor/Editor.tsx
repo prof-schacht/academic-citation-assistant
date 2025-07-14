@@ -21,6 +21,7 @@ import StatusBar from './StatusBar';
 import WordCountPlugin from './plugins/WordCountPlugin';
 import KeyboardShortcutsPlugin from './plugins/KeyboardShortcutsPlugin';
 import { CitationSuggestionPlugin } from './plugins/CitationSuggestionPlugin';
+import { CitationInsertPlugin } from './plugins/CitationInsertPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
 import type { CitationSuggestion } from '../../services/websocketService';
@@ -33,6 +34,7 @@ interface EditorProps {
   userId?: string;
   onCitationSuggestionsUpdate?: (suggestions: CitationSuggestion[]) => void;
   onCitationConnectionChange?: (connected: boolean) => void;
+  onRegisterCitationInsert?: (handler: (citation: CitationSuggestion) => void) => void;
 }
 
 // Plugin to load initial content
@@ -91,6 +93,7 @@ const Editor: React.FC<EditorProps> = ({
   userId = 'default-user',
   onCitationSuggestionsUpdate,
   onCitationConnectionChange,
+  onRegisterCitationInsert,
 }) => {
   // const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -189,6 +192,11 @@ const Editor: React.FC<EditorProps> = ({
                 userId={userId}
                 onSuggestionsUpdate={onCitationSuggestionsUpdate}
                 onConnectionChange={onCitationConnectionChange}
+              />
+            )}
+            {onRegisterCitationInsert && (
+              <CitationInsertPlugin
+                onRegisterInsertHandler={onRegisterCitationInsert}
               />
             )}
           </div>

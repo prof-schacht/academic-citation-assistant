@@ -61,6 +61,26 @@ docker-compose exec frontend npm install
 - For interfaces: Ensure they're imported as types, not values
 - Check that named exports match: `export { Component }` needs `import { Component }`
 
+### Frontend Network Connection Errors
+
+**Problem**: AxiosError with "Network Error" or "ERR_NETWORK" in browser
+
+**Solution**: Check if backend is accessible from host machine:
+1. Test backend directly: `curl http://localhost:8000/api/health/`
+2. Check if backend container is running: `docker-compose ps`
+3. Verify backend logs: `docker-compose logs backend -f`
+4. If backend is running but not accessible, restart: `docker-compose restart backend`
+
+### Paper Upload 404 Errors
+
+**Problem**: Paper upload fails with 404 "Not Found" error
+
+**Solution**: 
+1. Ensure backend is running: `docker-compose ps`
+2. Test upload endpoint: `curl -F "file=@test.txt" http://localhost:8000/api/papers/upload`
+3. Check if markitdown is installed: `docker-compose restart backend`
+4. Verify upload directory exists: `docker-compose exec backend mkdir -p /app/uploads`
+
 ### Docker Build Failures
 
 **Problem**: Docker build fails with network errors or timeouts.

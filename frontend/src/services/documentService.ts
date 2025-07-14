@@ -40,12 +40,12 @@ export interface DocumentListResponse {
 
 export const documentService = {
   async create(data: CreateDocumentDto): Promise<DocumentType> {
-    const response = await api.post<DocumentType>('/api/documents/', data);
+    const response = await api.post<DocumentType>('/documents/', data);
     return response.data;
   },
 
   async getById(id: string): Promise<DocumentType> {
-    const response = await api.get<DocumentType>(`/api/documents/${id}`);
+    const response = await api.get<DocumentType>(`/documents/${id}`);
     return response.data;
   },
 
@@ -55,16 +55,16 @@ export const documentService = {
     search?: string;
     public_only?: boolean;
   }): Promise<DocumentListResponse> {
-    const response = await api.get<DocumentListResponse>('/api/documents/', { params });
+    const response = await api.get<DocumentListResponse>('/documents/', { params });
     return response.data;
   },
 
   async update(id: string, data: UpdateDocumentDto): Promise<DocumentType> {
-    const response = await api.put<DocumentType>(`/api/documents/${id}`, data);
+    const response = await api.put<DocumentType>(`/documents/${id}`, data);
     return response.data;
   },
 
   async delete(id: string): Promise<void> {
-    await api.delete(`/api/documents/${id}`);
+    await api.delete(`/documents/${id}`);
   },
 };

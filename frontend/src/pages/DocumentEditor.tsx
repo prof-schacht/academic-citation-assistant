@@ -23,6 +23,7 @@ const DocumentEditor: React.FC = () => {
   const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion[]>([]);
   const [citationConnectionStatus, setCitationConnectionStatus] = useState(false);
   const editorStateRef = useRef<EditorState | null>(null);
+  const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -232,6 +233,9 @@ const DocumentEditor: React.FC = () => {
             userId="test-user"
             onCitationSuggestionsUpdate={setCitationSuggestions}
             onCitationConnectionChange={setCitationConnectionStatus}
+            onRegisterCitationInsert={(handler) => {
+              insertCitationRef.current = handler;
+            }}
           />
         </div>
         
@@ -242,6 +246,11 @@ const DocumentEditor: React.FC = () => {
       documentId={document.id} 
       suggestions={citationSuggestions}
       isConnected={citationConnectionStatus}
+      onInsertCitation={(citation) => {
+        if (insertCitationRef.current) {
+          insertCitationRef.current(citation);
+        }
+      }}
     />
           </div>
         )}

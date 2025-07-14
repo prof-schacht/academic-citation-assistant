@@ -20,7 +20,7 @@ import Toolbar from './Toolbar';
 import StatusBar from './StatusBar';
 import WordCountPlugin from './plugins/WordCountPlugin';
 import KeyboardShortcutsPlugin from './plugins/KeyboardShortcutsPlugin';
-import CitationSuggestionPlugin from './plugins/CitationSuggestionPlugin';
+import { CitationSuggestionPlugin } from './plugins/CitationSuggestionPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
 import type { CitationSuggestion } from '../../services/websocketService';

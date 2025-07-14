@@ -226,45 +226,44 @@ export class CitationWebSocketClient {
     const root = editorState._nodeMap.get('root');
     const textContent = root?.getTextContent() || '';
 
-    // Improved sentence extraction that handles incomplete sentences
-    // Split by sentence-ending punctuation OR newlines
-    const sentencePattern = /[^.!?\n]+[.!?]?/g;
-    const sentences = textContent.match(sentencePattern) || [];
+    // Handle both complete and incomplete sentences
+    let currentSentence = '';
     
-    // If no sentences found, treat the whole text as one sentence
-    if (sentences.length === 0 && textContent.trim().length > 0) {
-      sentences.push(textContent);
-    }
-    
-    // Find current sentence based on cursor position
-    let currentSentenceIndex = 0;
-    let charCount = 0;
-    
-    if (cursorOffset !== undefined && sentences.length > 0) {
-      for (let i = 0; i < sentences.length; i++) {
-        if (charCount + sentences[i].length >= cursorOffset) {
-          currentSentenceIndex = i;
-          break;
+    // If text is short (single line/paragraph), just use the whole text
+    if (textContent.length < 200 && !textContent.includes('\n\n')) {
+      currentSentence = textContent.trim();
+    } else {
+      // For longer text, try to extract sentences
+      const sentencePattern = /[^.!?\n]+[.!?]*/g;
+      const sentences = textContent.match(sentencePattern) || [];
+      
+      if (sentences.length === 0 && textContent.trim().length > 0) {
+        sentences.push(textContent);
+      }
+      
+      // Find current sentence based on cursor position
+      if (cursorOffset !== undefined && sentences.length > 0) {
+        let charCount = 0;
+        for (let i = 0; i < sentences.length; i++) {
+          if (charCount + sentences[i].length >= cursorOffset) {
+            currentSentence = sentences[i].trim();
+            break;
+          }
+          charCount += sentences[i].length;
         }
-        charCount += sentences[i].length;
+      } else {
+        // Use the last sentence if no cursor position
+        currentSentence = sentences[sentences.length - 1]?.trim() || textContent.trim();
       }
     }
-
-    // For incomplete sentences (no punctuation), use the current line or paragraph
-    let currentSentence = sentences[currentSentenceIndex]?.trim() || '';
     
-    // If we're in the middle of typing and have no proper sentence, use the current paragraph
-    if (!currentSentence || currentSentence.length < 10) {
-      // Get the current line or use the full text if it's short
-      const lines = textContent.split('\n');
-      const currentLine = lines[lines.length - 1] || textContent;
-      currentSentence = currentLine.trim() || textContent.trim();
-    }
+    // Clean up the sentence - remove trailing punctuation for matching
+    const cleanedSentence = currentSentence.replace(/[.!?]+\s*$/, '').trim();
 
     return {
-      currentSentence,
-      previousSentence: sentences[currentSentenceIndex - 1]?.trim(),
-      nextSentence: sentences[currentSentenceIndex + 1]?.trim(),
+      currentSentence: cleanedSentence || currentSentence,  // Use cleaned version for better matching
+      previousSentence: undefined,  // Simplified for now
+      nextSentence: undefined,      // Simplified for now
       paragraph: textContent,
       cursorPosition: cursorOffset || textContent.length
     };

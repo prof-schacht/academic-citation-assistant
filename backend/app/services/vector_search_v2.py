@@ -1,10 +1,11 @@
 """Simplified vector search service for pgvector - working version."""
 import numpy as np
 from typing import List, Optional, Dict, Any
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 from app.models.paper import Paper
+from app.models.paper_chunk import PaperChunk
 from app.core.config import settings
 from dataclasses import dataclass
 import logging
@@ -49,70 +50,113 @@ class VectorSearchService:
         user_id: str,
         options: SearchOptions = SearchOptions()
     ) -> List[SearchResult]:
-        """Search for similar papers using vector similarity."""
+        """Search for similar chunks across all papers using vector similarity."""
         
         # Validate embedding dimension
         if len(embedding) != self.vector_dim:
             raise ValueError(f"Embedding dimension mismatch: expected {self.vector_dim}, got {len(embedding)}")
             
         try:
-            # Use ORM approach with proper vector operations
             # Convert embedding to string format for PostgreSQL
             embedding_str = '[' + ','.join(map(str, embedding.tolist())) + ']'
             
-            # Create the similarity expression using raw SQL
+            # Create the similarity expression for chunks
             from sqlalchemy import Float
             similarity_expr = (
                 1 - func.cast(
-                    text(f"embedding <=> '{embedding_str}'::vector"),
+                    text(f"pc.embedding <=> '{embedding_str}'::vector"),
                     Float
                 )
             ).label('similarity')
             
-            # Build query
+            # Build query to search chunks, not entire papers
             query = select(
+                PaperChunk,
                 Paper,
                 similarity_expr
+            ).join(
+                Paper, PaperChunk.paper_id == Paper.id
             ).where(
-                Paper.is_processed == True,
-                similarity_expr > options.min_similarity
+                and_(
+                    Paper.is_processed == True,
+                    similarity_expr > options.min_similarity
+                )
             ).order_by(
                 similarity_expr.desc()
             ).limit(
-                options.limit
+                options.limit * 2  # Get more chunks, then deduplicate by paper
             )
             
-            # Add filters if provided
+            # Add paper-level filters if provided
             if options.filters:
                 if "year_from" in options.filters:
                     query = query.where(Paper.year >= options.filters["year_from"])
                 if "year_to" in options.filters:
                     query = query.where(Paper.year <= options.filters["year_to"])
             
-            # Execute query
-            result = await self.db.execute(query)
-            rows = result.all()
+            # Execute query with alias for PaperChunk
+            query_str = str(query.compile(compile_kwargs={"literal_binds": True}))
+            query_str = query_str.replace("paper_chunks.", "pc.")
             
-            # Convert to SearchResult objects
+            # Use a raw query for better control
+            raw_query = f"""
+                SELECT 
+                    pc.id as chunk_id,
+                    pc.content as chunk_content,
+                    pc.chunk_index,
+                    pc.section_title,
+                    p.id as paper_id,
+                    p.title,
+                    p.authors,
+                    p.year,
+                    p.abstract,
+                    p.journal,
+                    p.doi,
+                    p.citation_count,
+                    1 - (pc.embedding <=> '{embedding_str}'::vector) as similarity
+                FROM paper_chunks pc
+                JOIN papers p ON pc.paper_id = p.id
+                WHERE p.is_processed = true
+                    AND 1 - (pc.embedding <=> '{embedding_str}'::vector) > {options.min_similarity}
+                ORDER BY similarity DESC
+                LIMIT {options.limit * 2}
+            """
+            
+            result = await self.db.execute(text(raw_query))
+            rows = result.fetchall()
+            
+            # Convert to SearchResult objects and deduplicate by paper
             search_results = []
-            for paper, similarity in rows:
+            seen_papers = set()
+            
+            for row in rows:
+                paper_id = str(row.paper_id)
+                
+                # For now, include multiple chunks from same paper (better coverage)
+                # Later we can deduplicate if needed
                 search_results.append(SearchResult(
-                    paper_id=str(paper.id),
-                    title=paper.title,
-                    authors=paper.authors or [],
-                    year=paper.year or 0,
-                    abstract=paper.abstract or "",
-                    similarity=float(similarity),
-                    chunk_text=paper.abstract or paper.full_text or "",
-                    chunk_index=0,
+                    paper_id=paper_id,
+                    title=row.title,
+                    authors=row.authors or [],
+                    year=row.year or 0,
+                    abstract=row.abstract or "",
+                    similarity=float(row.similarity),
+                    chunk_text=row.chunk_content,
+                    chunk_index=row.chunk_index,
                     metadata={
-                        "journal": paper.journal,
-                        "doi": paper.doi,
-                        "citation_count": paper.citation_count
+                        "journal": row.journal,
+                        "doi": row.doi,
+                        "citation_count": row.citation_count,
+                        "section": row.section_title,
+                        "chunk_id": str(row.chunk_id)
                     }
                 ))
                 
-            logger.info(f"Found {len(search_results)} similar papers for user {user_id}")
+                # Limit to requested number of results
+                if len(search_results) >= options.limit:
+                    break
+                
+            logger.info(f"Found {len(search_results)} similar chunks for user {user_id}")
             return search_results
             
         except Exception as e:

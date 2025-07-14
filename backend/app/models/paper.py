@@ -15,6 +15,7 @@ from app.core.config import settings
 if TYPE_CHECKING:
     from app.models.citation import Citation
     from app.models.library import LibraryPaper
+    from app.models.paper_chunk import PaperChunk
 
 
 class Paper(Base):
@@ -65,6 +66,7 @@ class Paper(Base):
     # Relationships
     citations: Mapped[List["Citation"]] = relationship("Citation", back_populates="paper", cascade="all, delete-orphan")
     library_papers: Mapped[List["LibraryPaper"]] = relationship("LibraryPaper", back_populates="paper", cascade="all, delete-orphan")
+    chunks: Mapped[List["PaperChunk"]] = relationship("PaperChunk", back_populates="paper", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Paper(id={self.id}, title={self.title[:50]}...)>"

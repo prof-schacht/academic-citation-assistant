@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
-from app.models import Paper
+from app.models import Paper, PaperChunk
 from app.services.embedding import EmbeddingService
 # TextChunkingService is defined in this file
 from app.core.config import settings
@@ -66,17 +66,48 @@ class PaperProcessorService:
                 paper.year = metadata.get('year', paper.year)
                 paper.full_text = markdown_text
                 
-                # Chunk the text (500 words with 50-word overlap as per Issue #6)
+                # Chunk the text (250 words with 50-word overlap for better granularity)
                 chunks = processor.chunking_service.chunk_text(
                     markdown_text,
-                    chunk_size=500,
+                    chunk_size=250,  # Reduced from 500 for better search granularity
                     overlap_size=50,
                     respect_sentences=True
                 )
                 
                 logger.info(f"Created {len(chunks)} chunks for paper {paper_id}")
                 
-                # Generate embedding for the abstract or first chunk
+                # Delete existing chunks for this paper (in case of reprocessing)
+                existing_chunks = await db.execute(
+                    select(PaperChunk).where(PaperChunk.paper_id == UUID(paper_id))
+                )
+                for chunk in existing_chunks.scalars():
+                    await db.delete(chunk)
+                
+                # Create and embed each chunk
+                paper_chunks = []
+                for i, chunk in enumerate(chunks):
+                    # Generate embedding for this chunk
+                    chunk_embedding = await processor.embedding_service.generate_embedding(chunk.content)
+                    
+                    # Create PaperChunk record
+                    paper_chunk = PaperChunk(
+                        paper_id=UUID(paper_id),
+                        content=chunk.content,
+                        chunk_index=i,
+                        start_char=chunk.start_char,
+                        end_char=chunk.end_char,
+                        word_count=chunk.word_count,
+                        embedding=chunk_embedding,
+                        section_title=chunk.section_title
+                    )
+                    db.add(paper_chunk)
+                    paper_chunks.append(paper_chunk)
+                    
+                    # Log progress for long documents
+                    if (i + 1) % 10 == 0:
+                        logger.info(f"Processed {i + 1}/{len(chunks)} chunks for paper {paper_id}")
+                
+                # Also generate and store a main embedding for the paper (abstract or first chunk)
                 embedding_text = paper.abstract if paper.abstract else chunks[0].content if chunks else ""
                 if embedding_text:
                     embedding = await processor.embedding_service.generate_embedding(embedding_text)
@@ -86,11 +117,10 @@ class PaperProcessorService:
                 paper.is_processed = True
                 paper.processing_error = None
                 
-                # Save paper updates
+                # Save everything
                 await db.commit()
                 
-                # Store chunks (TODO: Create PaperChunk model and store chunks)
-                # For now, we're just storing the main embedding
+                logger.info(f"Successfully stored {len(paper_chunks)} chunks with embeddings for paper {paper_id}")
                 
                 logger.info(f"Successfully processed paper {paper_id}")
                 
@@ -283,22 +313,48 @@ class TextChunkingService:
         
         i = 0
         chunk_id = 0
+        char_offset = 0
+        
+        # Extract section headers (simple heuristic)
+        lines = text.split('\n')
+        current_section = None
         
         while i < len(words):
             # Get chunk_size words
             chunk_words = words[i:i + chunk_size]
             chunk_text = ' '.join(chunk_words)
             
+            # Calculate character positions
+            start_char = char_offset
+            end_char = start_char + len(chunk_text)
+            
+            # Try to detect section title (very simple heuristic)
+            chunk_lines = chunk_text.split('\n')
+            if chunk_lines and len(chunk_lines[0]) < 100 and chunk_lines[0].strip():
+                # Check if first line might be a section header
+                first_line = chunk_lines[0].strip()
+                if any(header in first_line.lower() for header in 
+                       ['introduction', 'abstract', 'method', 'result', 'discussion', 
+                        'conclusion', 'reference', 'background', 'related work']):
+                    current_section = first_line
+            
             chunks.append(TextChunk(
                 id=f"chunk_{chunk_id}",
                 content=chunk_text,
                 position=chunk_id,
-                word_count=len(chunk_words)
+                word_count=len(chunk_words),
+                start_char=start_char,
+                end_char=end_char,
+                section_title=current_section
             ))
             
             # Move forward by (chunk_size - overlap_size)
             i += chunk_size - overlap_size
             chunk_id += 1
+            
+            # Update character offset (approximate)
+            if i < len(words):
+                char_offset = text.find(' '.join(words[i:i+1]))
         
         return chunks
 
@@ -306,8 +362,12 @@ class TextChunkingService:
 class TextChunk:
     """Represents a chunk of text from a paper."""
     
-    def __init__(self, id: str, content: str, position: int, word_count: int):
+    def __init__(self, id: str, content: str, position: int, word_count: int, 
+                 start_char: int = 0, end_char: int = 0, section_title: Optional[str] = None):
         self.id = id
         self.content = content
         self.position = position
         self.word_count = word_count
+        self.start_char = start_char
+        self.end_char = end_char
+        self.section_title = section_title

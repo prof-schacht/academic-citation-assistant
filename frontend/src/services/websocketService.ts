@@ -154,6 +154,10 @@ export class CitationWebSocketClient {
     this.callbacks.onDisconnect = callback;
   }
 
+  getConnectionStatus(): boolean {
+    return this.isConnected;
+  }
+
   private handleMessage(message: WSMessage): void {
     switch (message.type) {
       case 'suggestions':

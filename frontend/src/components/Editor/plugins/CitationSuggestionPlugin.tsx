@@ -54,8 +54,15 @@ export function CitationSuggestionPlugin({
       onConnectionChange?.(false);
     });
 
-    // Connect to WebSocket
-    wsClient.connect();
+    // Check if already connected (singleton might already be connected)
+    if (wsClient.getConnectionStatus()) {
+      console.log('[CitationPlugin] WebSocket already connected');
+      setIsConnected(true);
+      onConnectionChange?.(true);
+    } else {
+      // Connect to WebSocket
+      wsClient.connect();
+    }
 
     return () => {
       // Don't disconnect on unmount as other components might use it
@@ -65,7 +72,15 @@ export function CitationSuggestionPlugin({
   // Debounced function to request suggestions
   const requestSuggestions = useRef(
     debounce((editorState: EditorState) => {
-      if (!wsClientRef.current || !isConnected) {
+      if (!wsClientRef.current) {
+        console.log('[CitationPlugin] No WebSocket client reference');
+        return;
+      }
+      
+      const currentConnectionStatus = wsClientRef.current.getConnectionStatus();
+      console.log('[CitationPlugin] Connection status:', currentConnectionStatus, 'isConnected state:', isConnected);
+      
+      if (!currentConnectionStatus) {
         console.log('[CitationPlugin] Not connected, skipping suggestion request');
         return;
       }

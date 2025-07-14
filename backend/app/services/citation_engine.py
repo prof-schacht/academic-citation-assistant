@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.embedding import EmbeddingService
-from app.services.vector_search import VectorSearchService, SearchOptions, SearchResult
+from app.services.vector_search_v2 import VectorSearchService, SearchOptions, SearchResult
 from app.services.text_analysis import TextContext
 from app.core.config import settings
 import logging

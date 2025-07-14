@@ -59,39 +59,31 @@ class VectorSearchService:
         
         # Build the base query using pgvector's <=> operator for cosine distance
         # Note: pgvector returns distance, so we convert to similarity (1 - distance)
-        query = text("""
+        query_str = """
             SELECT 
                 p.id,
                 p.title,
                 p.authors,
                 p.year,
                 p.abstract,
-                p.chunk_text,
-                p.chunk_index,
-                p.metadata,
+                p.full_text,
+                p.journal,
+                p.doi,
                 1 - (p.embedding <=> :embedding::vector) as similarity
             FROM papers p
             WHERE 
                 1 - (p.embedding <=> :embedding::vector) > :min_similarity
-                AND (
-                    p.is_public = true 
-                    OR p.user_id = :user_id
-                    OR EXISTS (
-                        SELECT 1 FROM libraries l
-                        JOIN library_papers lp ON l.id = lp.library_id
-                        WHERE lp.paper_id = p.id 
-                        AND l.user_id = :user_id
-                    )
-                )
-        """)
+                AND p.is_processed = true
+        """
+        
+        # Prepare parameters dict
+        params = {
+            "embedding": embedding_list,
+            "min_similarity": options.min_similarity
+        }
         
         # Add filters if provided
         filter_conditions = []
-        params = {
-            "embedding": embedding_list,
-            "min_similarity": options.min_similarity,
-            "user_id": user_id
-        }
         
         if options.filters:
             if "year_from" in options.filters:
@@ -102,24 +94,22 @@ class VectorSearchService:
                 filter_conditions.append("p.year <= :year_to")
                 params["year_to"] = options.filters["year_to"]
                 
-            if "paper_type" in options.filters:
-                filter_conditions.append("p.paper_type = ANY(:paper_types)")
-                params["paper_types"] = options.filters["paper_type"]
-                
         # Combine filter conditions
         if filter_conditions:
             filter_clause = " AND " + " AND ".join(filter_conditions)
-            query = text(str(query) + filter_clause)
+            query_str += filter_clause
             
         # Add ordering and limit
-        query = text(str(query) + """
+        query_str += """
             ORDER BY similarity DESC
             LIMIT :limit
-        """)
+        """
         params["limit"] = options.limit
         
+        query = text(query_str)
+        
         try:
-            # Execute the query
+            # Execute the query with named parameters
             result = await self.db.execute(query, params)
             rows = result.fetchall()
             
@@ -127,15 +117,15 @@ class VectorSearchService:
             search_results = []
             for row in rows:
                 search_results.append(SearchResult(
-                    paper_id=row.id,
+                    paper_id=str(row.id),
                     title=row.title,
-                    authors=row.authors,
-                    year=row.year,
-                    abstract=row.abstract,
+                    authors=row.authors or [],
+                    year=row.year or 0,
+                    abstract=row.abstract or "",
                     similarity=float(row.similarity),
-                    chunk_text=row.chunk_text,
-                    chunk_index=row.chunk_index,
-                    metadata=row.metadata or {}
+                    chunk_text=row.abstract or row.full_text or "",  # Use abstract as chunk for now
+                    chunk_index=0,
+                    metadata={"journal": row.journal, "doi": row.doi} if row.journal or row.doi else {}
                 ))
                 
             logger.info(f"Found {len(search_results)} similar papers for user {user_id}")

@@ -232,32 +232,63 @@ export class CitationWebSocketClient {
 
     // Handle both complete and incomplete sentences
     let currentSentence = '';
+    let previousSentence = '';
+    let nextSentence = '';
     
-    // If text is short (single line/paragraph), just use the whole text
-    if (textContent.length < 200 && !textContent.includes('\n\n')) {
-      currentSentence = textContent.trim();
-    } else {
-      // For longer text, try to extract sentences
-      const sentencePattern = /[^.!?\n]+[.!?]*/g;
-      const sentences = textContent.match(sentencePattern) || [];
-      
-      if (sentences.length === 0 && textContent.trim().length > 0) {
+    // Always try to extract sentences, regardless of text length
+    // Updated pattern to better handle sentence boundaries including questions
+    // This pattern captures text ending with punctuation OR line breaks
+    const sentencePattern = /[^.!?\n]+[.!?]+\s*|[^.!?\n]+(?=\n|$)/g;
+    const sentences = textContent.match(sentencePattern) || [];
+    
+    // If no sentences found with punctuation, split by newlines
+    if (sentences.length === 0 && textContent.trim().length > 0) {
+      const lines = textContent.split('\n').filter(line => line.trim());
+      if (lines.length > 0) {
+        sentences.push(...lines);
+      } else {
         sentences.push(textContent);
       }
+    }
+    
+    // Find current sentence based on cursor position
+    if (cursorOffset !== undefined && sentences.length > 0) {
+      let charCount = 0;
+      let currentIndex = -1;
       
-      // Find current sentence based on cursor position
-      if (cursorOffset !== undefined && sentences.length > 0) {
-        let charCount = 0;
-        for (let i = 0; i < sentences.length; i++) {
-          if (charCount + sentences[i].length >= cursorOffset) {
-            currentSentence = sentences[i].trim();
-            break;
+      for (let i = 0; i < sentences.length; i++) {
+        const sentenceLength = sentences[i].length;
+        if (charCount <= cursorOffset && cursorOffset <= charCount + sentenceLength) {
+          currentIndex = i;
+          currentSentence = sentences[i].trim();
+          
+          // Get previous and next sentences
+          if (i > 0) {
+            previousSentence = sentences[i - 1].trim();
           }
-          charCount += sentences[i].length;
+          if (i < sentences.length - 1) {
+            nextSentence = sentences[i + 1].trim();
+          }
+          break;
         }
-      } else {
-        // Use the last sentence if no cursor position
-        currentSentence = sentences[sentences.length - 1]?.trim() || textContent.trim();
+        charCount += sentenceLength;
+      }
+      
+      // If cursor is at the very end, use the last sentence
+      if (currentIndex === -1 && sentences.length > 0) {
+        currentIndex = sentences.length - 1;
+        currentSentence = sentences[currentIndex].trim();
+        if (currentIndex > 0) {
+          previousSentence = sentences[currentIndex - 1].trim();
+        }
+      }
+    } else {
+      // Use the last sentence if no cursor position
+      if (sentences.length > 0) {
+        currentSentence = sentences[sentences.length - 1].trim();
+        if (sentences.length > 1) {
+          previousSentence = sentences[sentences.length - 2].trim();
+        }
       }
     }
     
@@ -266,9 +297,9 @@ export class CitationWebSocketClient {
 
     return {
       currentSentence: cleanedSentence || currentSentence,  // Use cleaned version for better matching
-      previousSentence: undefined,  // Simplified for now
-      nextSentence: undefined,      // Simplified for now
-      paragraph: textContent,
+      previousSentence: previousSentence || undefined,
+      nextSentence: nextSentence || undefined,
+      paragraph: currentSentence,  // Use just the current sentence as paragraph for focused search
       cursorPosition: cursorOffset || textContent.length
     };
   }

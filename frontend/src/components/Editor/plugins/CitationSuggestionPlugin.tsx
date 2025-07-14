@@ -97,17 +97,57 @@ export function CitationSuggestionPlugin({
           return;
         }
 
-        // Get cursor position
+        // Get cursor position - calculate absolute position in document
         const anchor = selection.anchor;
-        const cursorOffset = anchor.offset;
+        const anchorNode = anchor.getNode();
         
-        // Extract context from editor
-        const context = CitationWebSocketClient.extractContextFromEditor(editorState, cursorOffset);
+        // Get the full text content
+        const root = $getRoot();
+        const fullText = root.getTextContent();
+        
+        // Calculate absolute cursor position by finding text before anchor
+        let absoluteOffset = 0;
+        const allTextNodes: any[] = [];
+        
+        // Collect all text nodes
+        function collectTextNodes(node: any) {
+          if (node.getType() === 'text') {
+            allTextNodes.push(node);
+          } else if (node.getChildren) {
+            const children = node.getChildren();
+            for (const child of children) {
+              collectTextNodes(child);
+            }
+          }
+        }
+        
+        collectTextNodes(root);
+        
+        // Find position
+        for (const textNode of allTextNodes) {
+          if (textNode === anchorNode) {
+            absoluteOffset += anchor.offset;
+            break;
+          } else {
+            absoluteOffset += textNode.getTextContent().length;
+          }
+        }
+        
+        console.log('[CitationPlugin] Cursor at absolute position:', absoluteOffset, 'in text of length:', fullText.length);
+        
+        // Extract context from editor with correct cursor position
+        const context = CitationWebSocketClient.extractContextFromEditor(editorState, absoluteOffset);
         
         // Get current text
         const currentText = context.currentSentence || '';
         
-        console.log('[CitationPlugin] Extracted text:', currentText, 'Length:', currentText.trim().length);
+        console.log('[CitationPlugin] Context extraction:', {
+          currentSentence: currentText,
+          previousSentence: context.previousSentence,
+          nextSentence: context.nextSentence,
+          cursorPosition: context.cursorPosition,
+          textLength: currentText.trim().length
+        });
         
         // Skip if text hasn't changed significantly
         if (currentText === lastTextRef.current || currentText.trim().length < 10) {

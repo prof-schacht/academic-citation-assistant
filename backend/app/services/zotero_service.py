@@ -15,6 +15,8 @@ from sqlalchemy import select, and_
 from app.models import Paper, User, ZoteroSync, ZoteroConfig, PaperChunk
 from app.services.paper_processor import PaperProcessorService
 from app.core.config import settings
+from app.utils.logging_utils import log_async_info, log_async_error
+from app.models.system_log import LogCategory
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +71,32 @@ class ZoteroService:
         try:
             url = f"{self.BASE_URL}/users/{self._config.zotero_user_id}/items?limit=1"
             async with self._session.get(url) as response:
-                return response.status == 200
+                success = response.status == 200
+                if success:
+                    await log_async_info(
+                        self.db,
+                        LogCategory.ZOTERO_SYNC,
+                        "Zotero connection test successful",
+                        user_id=self.user_id
+                    )
+                else:
+                    await log_async_error(
+                        self.db,
+                        LogCategory.ZOTERO_SYNC,
+                        f"Zotero connection test failed with status {response.status}",
+                        Exception(f"HTTP {response.status}"),
+                        user_id=self.user_id
+                    )
+                return success
         except Exception as e:
             logger.error(f"Zotero connection test failed: {e}")
+            await log_async_error(
+                self.db,
+                LogCategory.ZOTERO_SYNC,
+                "Zotero connection test failed",
+                e,
+                user_id=self.user_id
+            )
             return False
     
     def get_sync_progress(self) -> Dict[str, Any]:
@@ -428,9 +453,27 @@ class ZoteroService:
                     f.write(content)
                 
                 logger.info(f"Downloaded PDF attachment {attachment_key} to {file_path}")
+                await log_async_info(
+                    self.db,
+                    LogCategory.PDF_PROCESSING,
+                    f"Downloaded PDF attachment {attachment_key}",
+                    user_id=self.user_id,
+                    entity_type="attachment",
+                    entity_id=attachment_key,
+                    details={"file_path": file_path, "size": len(content)}
+                )
                 return file_path
         except Exception as e:
             logger.error(f"Error downloading PDF attachment {attachment_key}: {e}")
+            await log_async_error(
+                self.db,
+                LogCategory.PDF_PROCESSING,
+                f"Failed to download PDF attachment {attachment_key}",
+                e,
+                user_id=self.user_id,
+                entity_type="attachment",
+                entity_id=attachment_key
+            )
             return None
     
     async def sync_library(self, force_full_sync: bool = False) -> Tuple[int, int, int]:
@@ -448,6 +491,15 @@ class ZoteroService:
         failed_papers = 0
         
         logger.info(f"Starting Zotero sync (force_full_sync={force_full_sync})")
+        
+        # Log sync start
+        await log_async_info(
+            self.db,
+            LogCategory.ZOTERO_SYNC,
+            f"Starting Zotero sync (force_full_sync={force_full_sync})",
+            user_id=self.user_id,
+            details={"force_full_sync": force_full_sync}
+        )
         
         # Initialize progress
         self._update_sync_progress(

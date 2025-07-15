@@ -1,71 +1,27 @@
-# Development Scratchpad
+# Development Scratchpad - Logging System Implementation
 
-## 2025-07-15: Fixing Zotero Collection Sync Issue
+## 2025-07-15: Starting Logging System Implementation
 
-### Problem
-The Zotero sync is failing when collections are selected in the old format (just collection keys without library IDs). The system needs to handle both formats:
-1. Old format: `["CPUVP4AQ", "OTHERKEY"]` - just collection keys
-2. New format: `[{"key": "CPUVP4AQ", "libraryId": "groups/123456"}]` - with library context
+### Task Overview
+Creating a comprehensive logging system for the Academic Citation Assistant to track:
+- Zotero sync operations
+- PDF processing events
+- System errors
+- General system events
 
-### Analysis
-Looking at the current implementation in `zotero_service.py`:
+### Implementation Plan
+1. Create database model for logs
+2. Add API endpoints for log retrieval
+3. Implement log capture in existing services
+4. Create frontend log viewer component
+5. Add real-time log updates
 
-1. **Lines 110-127**: The code attempts to parse selected collections and handle both formats
-2. **Lines 142-155**: When old-format collections are detected without library info, it tries to fetch from all libraries
-3. **Lines 170-176**: Collection filtering is applied per library
-
-The issue is that when collections are in old format, the system doesn't efficiently find which library contains those collections.
-
-### Solution Plan
-1. Implement a more robust collection filtering logic that:
-   - Searches all available libraries when collections are in old format
-   - Prioritizes the user's personal library first
-   - Caches collection-to-library mappings for efficiency
-
-2. Add a migration function to convert old format collections to new format
-
-3. Improve logging to better debug collection matching issues
-
-4. Add comprehensive tests to ensure both formats work correctly
-
-### Implementation Steps
-1. ✓ Update `fetch_library_items` method to better handle old format collections
-   - Added detection of old format collections
-   - When old format is detected, search all available libraries
-   - Create a mapping of collection keys to library IDs
-   - Apply correct filtering per library
-   
-2. ✓ Add better logging for collection discovery
-   - Log which collections are found in which libraries
-   - Log collections that aren't found anywhere
-   - Better debug logging for item filtering
-
-3. ✓ Implement collection format migration (`migrate_collection_format`)
-   - Discovers which library contains each old-format collection
-   - Converts to new format with library IDs
-   - Updates the database configuration
-   
-4. ✓ Create a test to verify the fix works
-   - Created test_zotero_collection_simple.py for quick validation
-   - Created test_zotero_collection_fix.py for comprehensive testing
-   
-5. ✓ Run tests and validate the implementation
-   - Test confirmed: 47 papers synced from 3 collections
-   - Old format collections correctly discovered in user library
-   - Other libraries correctly skipped (optimization working)
-   - No errors during sync
-
-### Results
-✅ Successfully fixed the Zotero collection sync issue!
-- Old format collections now sync correctly
-- System automatically discovers which library contains each collection
-- Performance optimized by skipping libraries without selected collections
-- Migration function available for converting to new format
-- Documentation updated with fix details
-
-### Test Instructions for Users
-To test this fix:
-1. Ensure your Zotero configuration has collections selected
-2. Run a sync: `POST /api/zotero/sync` with `{"force_full_sync": true}`
-3. Check the sync results - papers from selected collections should be synced
-4. Optional: Use the migration function to convert to new format for better performance
+### Progress
+- [ ] Create SystemLog model
+- [ ] Create database migration
+- [ ] Create log schemas
+- [ ] Add log API endpoints
+- [ ] Update services to use logging
+- [ ] Create frontend log viewer
+- [ ] Add real-time updates
+- [ ] Add log filtering and search

@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models import Paper, User
 from app.schemas.paper import PaperCreate, PaperUpdate, PaperResponse, PaperListResponse
 from app.services.paper_processor import PaperProcessorService
+from app.services.background_processor import background_processor
 from app.core.config import settings
 
 router = APIRouter(prefix="/papers", tags=["papers"])
@@ -283,3 +284,10 @@ async def reprocess_paper(
     )
     
     return {"message": "Paper queued for reprocessing"}
+
+
+@router.get("/processing/status")
+async def get_processing_status():
+    """Get the status of the background processing queue."""
+    status = await background_processor.get_queue_status()
+    return status

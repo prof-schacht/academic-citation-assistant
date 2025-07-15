@@ -14,6 +14,8 @@ from app.models import Paper, PaperChunk
 from app.services.embedding import EmbeddingService
 # TextChunkingService is defined in this file
 from app.core.config import settings
+from app.utils.logging_utils import log_async_info, log_async_error
+from app.models.system_log import LogCategory
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,17 @@ class PaperProcessorService:
                     return
                 
                 logger.info(f"Processing paper {paper_id}: {paper.title}")
+                
+                # Log processing start
+                await log_async_info(
+                    db,
+                    LogCategory.PDF_PROCESSING,
+                    f"Starting PDF processing for paper: {paper.title}",
+                    user_id=paper.user_id,
+                    entity_type="paper",
+                    entity_id=str(paper_id),
+                    details={"file_path": file_path}
+                )
                 
                 # Extract text using MarkItDown
                 markdown_text = processor._extract_text(file_path)
@@ -122,10 +135,38 @@ class PaperProcessorService:
                 
                 logger.info(f"Successfully stored {len(paper_chunks)} chunks with embeddings for paper {paper_id}")
                 
+                # Log success
+                await log_async_info(
+                    db,
+                    LogCategory.PDF_PROCESSING,
+                    f"Successfully processed PDF for paper: {paper.title}",
+                    user_id=paper.user_id,
+                    entity_type="paper",
+                    entity_id=str(paper_id),
+                    details={
+                        "chunks_created": len(paper_chunks),
+                        "text_length": len(markdown_text),
+                        "has_abstract": bool(paper.abstract)
+                    }
+                )
+                
                 logger.info(f"Successfully processed paper {paper_id}")
                 
             except Exception as e:
                 logger.error(f"Error processing paper {paper_id}: {str(e)}")
+                
+                # Log error
+                if paper:
+                    await log_async_error(
+                        db,
+                        LogCategory.PDF_PROCESSING,
+                        f"Failed to process PDF for paper: {paper.title if paper else paper_id}",
+                        e,
+                        user_id=paper.user_id if paper else None,
+                        entity_type="paper",
+                        entity_id=str(paper_id),
+                        details={"file_path": file_path}
+                    )
                 
                 # Update paper with error
                 if paper:
@@ -135,10 +176,17 @@ class PaperProcessorService:
     def _extract_text(self, file_path: str) -> str:
         """Extract text from file using MarkItDown."""
         try:
+            # Check if file exists
+            if not os.path.exists(file_path):
+                logger.error(f"File not found: {file_path}")
+                raise FileNotFoundError(f"File not found: {file_path}")
+            
             result = self.markitdown.convert(file_path)
             return result.text_content
         except Exception as e:
             logger.error(f"MarkItDown extraction failed: {e}")
+            if isinstance(e, FileNotFoundError):
+                raise
             return ""
     
     def _extract_metadata(self, markdown_text: str) -> Dict[str, any]:

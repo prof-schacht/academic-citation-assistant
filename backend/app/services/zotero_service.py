@@ -77,10 +77,57 @@ class ZoteroService:
             List of Zotero items
         """
         items = []
+        
+        # Parse selected groups and collections
+        import json
+        selected_groups = []
+        selected_collections = []
+        
+        if self._config.selected_groups:
+            try:
+                selected_groups = json.loads(self._config.selected_groups)
+            except:
+                selected_groups = []
+                
+        if self._config.selected_collections:
+            try:
+                selected_collections = json.loads(self._config.selected_collections)
+            except:
+                selected_collections = []
+        
+        # If no groups/collections selected, fetch from user's personal library
+        if not selected_groups and not selected_collections:
+            selected_groups = [f"users/{self._config.zotero_user_id}"]
+        
+        # Fetch items from each selected library/group
+        for library_id in selected_groups:
+            items.extend(await self._fetch_items_from_library(library_id, modified_since, selected_collections))
+        
+        logger.info(f"Fetched {len(items)} items from Zotero")
+        return items
+    
+    async def _fetch_items_from_library(
+        self, 
+        library_id: str, 
+        modified_since: Optional[datetime] = None,
+        filter_collections: List[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch items from a specific library.
+        
+        Args:
+            library_id: Library ID (e.g., "users/12345" or "groups/67890")
+            modified_since: Only fetch items modified after this date
+            filter_collections: If provided, only fetch items from these collections
+            
+        Returns:
+            List of Zotero items
+        """
+        items = []
         start = 0
         
-        # Build base URL with filters for academic papers
-        base_url = f"{self.BASE_URL}/users/{self._config.zotero_user_id}/items"
+        # Build base URL
+        base_url = f"{self.BASE_URL}/{library_id}/items"
         params = {
             "limit": self.ITEMS_PER_PAGE,
             "itemType": "journalArticle || book || bookSection || conferencePaper || report || thesis"
@@ -95,12 +142,21 @@ class ZoteroService:
             
             async with self._session.get(base_url, params=params) as response:
                 if response.status != 200:
-                    logger.error(f"Failed to fetch Zotero items: {response.status}")
+                    logger.error(f"Failed to fetch Zotero items from {library_id}: {response.status}")
                     break
                 
                 batch = await response.json()
                 if not batch:
                     break
+                
+                # Filter by collections if specified
+                if filter_collections:
+                    filtered_batch = []
+                    for item in batch:
+                        item_collections = item.get("data", {}).get("collections", [])
+                        if any(col in filter_collections for col in item_collections):
+                            filtered_batch.append(item)
+                    batch = filtered_batch
                 
                 items.extend(batch)
                 
@@ -114,7 +170,6 @@ class ZoteroService:
                 # Small delay to respect rate limits
                 await asyncio.sleep(0.1)
         
-        logger.info(f"Fetched {len(items)} items from Zotero")
         return items
     
     def _extract_paper_metadata(self, item: Dict[str, Any]) -> Dict[str, Any]:
@@ -355,3 +410,68 @@ class ZoteroService:
         
         await self.db.commit()
         return config
+    
+    async def fetch_groups(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all groups the user has access to.
+        
+        Returns:
+            List of group objects with id, name, and type
+        """
+        groups = []
+        
+        # First, add the user's personal library
+        groups.append({
+            "id": f"users/{self._config.zotero_user_id}",
+            "name": "My Library",
+            "type": "user",
+            "owner": None
+        })
+        
+        # Then fetch groups
+        url = f"{self.BASE_URL}/users/{self._config.zotero_user_id}/groups"
+        
+        async with self._session.get(url) as response:
+            if response.status == 200:
+                group_data = await response.json()
+                for group in group_data:
+                    data = group.get("data", {})
+                    groups.append({
+                        "id": f"groups/{data.get('id')}",
+                        "name": data.get("name", "Unknown Group"),
+                        "type": data.get("type", "Private"),
+                        "owner": data.get("owner")
+                    })
+        
+        return groups
+    
+    async def fetch_collections(self, library_id: str = None) -> List[Dict[str, Any]]:
+        """
+        Fetch all collections from a library.
+        
+        Args:
+            library_id: Library ID (e.g., "users/12345" or "groups/67890").
+                       If None, uses user's personal library.
+                       
+        Returns:
+            List of collection objects with key, name, and parentCollection
+        """
+        if library_id is None:
+            library_id = f"users/{self._config.zotero_user_id}"
+        
+        collections = []
+        url = f"{self.BASE_URL}/{library_id}/collections"
+        
+        async with self._session.get(url) as response:
+            if response.status == 200:
+                collection_data = await response.json()
+                for collection in collection_data:
+                    data = collection.get("data", {})
+                    collections.append({
+                        "key": data.get("key"),
+                        "name": data.get("name", "Unknown Collection"),
+                        "parentCollection": data.get("parentCollection"),
+                        "libraryId": library_id
+                    })
+        
+        return collections

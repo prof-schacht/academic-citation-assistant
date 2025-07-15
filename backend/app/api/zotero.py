@@ -1,5 +1,5 @@
 """Zotero API endpoints."""
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,8 @@ class ZoteroConfigRequest(BaseModel):
     zotero_user_id: str = Field(..., description="Numeric Zotero user ID")
     auto_sync_enabled: bool = Field(True, description="Enable automatic sync")
     sync_interval_minutes: int = Field(30, description="Sync interval in minutes")
+    selected_groups: Optional[List[str]] = Field(None, description="List of selected group IDs")
+    selected_collections: Optional[List[str]] = Field(None, description="List of selected collection keys")
 
 
 class ZoteroConfigResponse(BaseModel):
@@ -61,6 +63,14 @@ async def configure_zotero(
             # Update sync settings
             zotero_config.auto_sync_enabled = config.auto_sync_enabled
             zotero_config.sync_interval_minutes = config.sync_interval_minutes
+            
+            # Update selected groups and collections
+            import json
+            if config.selected_groups is not None:
+                zotero_config.selected_groups = json.dumps(config.selected_groups)
+            if config.selected_collections is not None:
+                zotero_config.selected_collections = json.dumps(config.selected_collections)
+            
             await db.commit()
             
             # Test connection
@@ -198,3 +208,38 @@ async def disconnect_zotero(
     except Exception as e:
         logger.error(f"Failed to disconnect Zotero: {e}")
         raise HTTPException(status_code=500, detail="Failed to disconnect Zotero")
+
+
+@router.get("/groups")
+async def get_zotero_groups(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> List[dict]:
+    """Get all Zotero groups accessible by the user."""
+    try:
+        async with ZoteroService(db, current_user.id) as service:
+            groups = await service.fetch_groups()
+        return groups
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to fetch Zotero groups: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch groups")
+
+
+@router.get("/collections")
+async def get_zotero_collections(
+    library_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> List[dict]:
+    """Get all collections from a specific library or user's personal library."""
+    try:
+        async with ZoteroService(db, current_user.id) as service:
+            collections = await service.fetch_collections(library_id)
+        return collections
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to fetch Zotero collections: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch collections")

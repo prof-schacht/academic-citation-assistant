@@ -36,8 +36,25 @@ const ZoteroSettings: React.FC = () => {
       if (status.configured) {
         setAutoSyncEnabled(status.autoSyncEnabled);
         setSyncIntervalMinutes(status.syncIntervalMinutes);
-        // Load groups if configured
-        loadGroups();
+        
+        // Load groups and collections if configured
+        try {
+          const groupList = await zoteroService.getGroups();
+          setGroups(groupList);
+          
+          // Load collections for each group
+          const allCollections: ZoteroCollection[] = [];
+          for (const group of groupList) {
+            const cols = await zoteroService.getCollections(group.id);
+            allCollections.push(...cols);
+          }
+          setCollections(allCollections);
+          
+          // TODO: Load previously selected groups/collections from backend
+          // For now, we'll need to add this to the status endpoint
+        } catch (err) {
+          console.error('Failed to load groups/collections:', err);
+        }
       }
     } catch (err) {
       console.error('Failed to load Zotero status:', err);
@@ -69,7 +86,8 @@ const ZoteroSettings: React.FC = () => {
     setError(null);
     setSuccess(null);
     
-    if (!apiKey || !zoteroUserId) {
+    // Only require API key and user ID for initial configuration
+    if (!status?.configured && (!apiKey || !zoteroUserId)) {
       setError('Please provide both API key and User ID');
       return;
     }
@@ -78,8 +96,8 @@ const ZoteroSettings: React.FC = () => {
     
     try {
       const config: ZoteroConfig = {
-        apiKey,
-        zoteroUserId,
+        apiKey: apiKey || '',  // Empty string for updates
+        zoteroUserId: zoteroUserId || '',  // Empty string for updates
         autoSyncEnabled,
         syncIntervalMinutes,
         selectedGroups: selectedGroups.length > 0 ? selectedGroups : undefined,
@@ -94,8 +112,10 @@ const ZoteroSettings: React.FC = () => {
       setApiKey('');
       setZoteroUserId('');
       
-      // Load groups after successful configuration
-      loadGroups();
+      // Reload groups to ensure we have latest data
+      if (newStatus.configured) {
+        await loadStatus();
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to save configuration');
     } finally {
@@ -110,12 +130,34 @@ const ZoteroSettings: React.FC = () => {
     
     try {
       const result = await zoteroService.sync();
-      setSuccess(result.message);
+      
+      // Show detailed sync results
+      if (result.success) {
+        if (result.failedPapers > 0) {
+          // Partial success
+          setSuccess(
+            `Sync completed with some errors:\n` +
+            `✓ ${result.newPapers} new papers imported\n` +
+            `✓ ${result.updatedPapers} papers updated\n` +
+            `✗ ${result.failedPapers} papers failed to import`
+          );
+        } else {
+          // Complete success
+          setSuccess(
+            `Sync completed successfully!\n` +
+            `✓ ${result.newPapers} new papers imported\n` +
+            `✓ ${result.updatedPapers} papers updated`
+          );
+        }
+      } else {
+        setError(result.message);
+      }
       
       // Reload status to get updated sync time
       await loadStatus();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Sync failed');
+      const errorMessage = err.response?.data?.detail || err.message || 'Sync failed';
+      setError(`Sync failed: ${errorMessage}`);
     } finally {
       setIsSyncing(false);
     }
@@ -161,13 +203,13 @@ const ZoteroSettings: React.FC = () => {
 
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-800">{error}</p>
+              <p className="text-red-800 whitespace-pre-line">{error}</p>
             </div>
           )}
 
           {success && (
             <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-green-800">{success}</p>
+              <p className="text-green-800 whitespace-pre-line">{success}</p>
             </div>
           )}
 

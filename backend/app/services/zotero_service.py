@@ -187,13 +187,18 @@ class ZoteroService:
                     authors.append(name)
         
         # Extract other metadata
+        # Convert empty strings to None for unique fields
+        doi = data.get("DOI", "")
+        if doi == "":
+            doi = None
+            
         metadata = {
             "title": data.get("title", ""),
             "authors": authors,
-            "abstract": data.get("abstractNote", ""),
+            "abstract": data.get("abstractNote", "") or None,
             "year": self._extract_year(data),
-            "journal": data.get("publicationTitle", "") or data.get("bookTitle", ""),
-            "doi": data.get("DOI", ""),
+            "journal": data.get("publicationTitle", "") or data.get("bookTitle", "") or None,
+            "doi": doi,
             "source": "zotero",
             "zotero_key": item.get("key", ""),
             "citation_count": 0,  # Zotero doesn't provide this

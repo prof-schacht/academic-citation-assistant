@@ -1,5 +1,6 @@
 """Zotero API endpoints."""
 from typing import Optional, List
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,9 +53,48 @@ async def configure_zotero(
 ) -> ZoteroConfigResponse:
     """Configure Zotero integration for the current user."""
     try:
-        # Test the connection first
-        async with ZoteroService(db, current_user.id) as service:
-            # Configure
+        from sqlalchemy import select
+        from app.models import ZoteroConfig
+        
+        # Check if config already exists
+        result = await db.execute(
+            select(ZoteroConfig).where(ZoteroConfig.user_id == current_user.id)
+        )
+        existing_config = result.scalar_one_or_none()
+        
+        if existing_config:
+            # Update existing config
+            zotero_config = existing_config
+            
+            # Only update API key and user ID if provided (not empty)
+            if config.api_key:
+                zotero_config.api_key = config.api_key
+            if config.zotero_user_id:
+                zotero_config.zotero_user_id = config.zotero_user_id
+                
+            zotero_config.auto_sync_enabled = config.auto_sync_enabled
+            zotero_config.sync_interval_minutes = config.sync_interval_minutes
+            
+            # Update selected groups and collections
+            import json
+            if config.selected_groups is not None:
+                zotero_config.selected_groups = json.dumps(config.selected_groups)
+            if config.selected_collections is not None:
+                zotero_config.selected_collections = json.dumps(config.selected_collections)
+                
+            zotero_config.updated_at = datetime.utcnow()
+        else:
+            # Create new config - API key and user ID are required
+            if not config.api_key or not config.zotero_user_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="API key and Zotero user ID are required for initial configuration"
+                )
+                
+            # Create service without using context manager for initial configuration
+            service = ZoteroService(db, current_user.id)
+            
+            # Configure (this creates the config)
             zotero_config = await service.configure(
                 api_key=config.api_key,
                 zotero_user_id=config.zotero_user_id
@@ -70,16 +110,18 @@ async def configure_zotero(
                 zotero_config.selected_groups = json.dumps(config.selected_groups)
             if config.selected_collections is not None:
                 zotero_config.selected_collections = json.dumps(config.selected_collections)
-            
-            await db.commit()
-            
-            # Test connection
-            connection_ok = await service.test_connection()
-            if not connection_ok:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid Zotero credentials or user ID"
-                )
+        
+        await db.commit()
+        
+        # Test connection only if API credentials were updated
+        if config.api_key or config.zotero_user_id or not existing_config:
+            async with ZoteroService(db, current_user.id) as configured_service:
+                connection_ok = await configured_service.test_connection()
+                if not connection_ok:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid Zotero credentials or user ID"
+                    )
         
         return ZoteroConfigResponse(
             configured=True,

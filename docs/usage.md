@@ -2,6 +2,23 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero Sync Issues Fixed
+- **Empty DOI Handling** - Papers without DOIs now sync correctly
+  - Database now properly stores NULL instead of empty strings for missing DOIs
+  - Unique constraint violation errors eliminated
+  - Run migration: `cd backend && python run_doi_migration.py`
+  
+- **Detailed Sync Reporting** - See exactly what happened during sync
+  - Shows count of new papers imported
+  - Shows count of papers updated
+  - Shows count of failed imports with details
+  - Success messages display formatted results
+
+- **Settings Save Fixed** - Update sync settings without re-entering credentials
+  - API key and User ID only required for initial setup
+  - Can update sync intervals and selected libraries independently
+  - Selected groups and collections properly saved
+
 ### Zotero Integration - Enhanced
 - **Group and Collection Selection** - Choose specific libraries and collections to sync
   - Select multiple Zotero groups/libraries

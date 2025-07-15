@@ -2,6 +2,14 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero Collection Format Fix - Latest Update
+- **Old Format Collection Sync** - Fixed critical issue where collections saved in old format wouldn't sync
+  - **Root Cause**: Collections saved as `["CPUVP4AQ", "7AZYIPWP"]` (just keys) instead of new format `[{key: "CPUVP4AQ", libraryId: "users/12345"}]`
+  - **Solution**: System now automatically detects old format and searches all libraries to find where collections belong
+  - **Migration**: Added `migrate_collection_format()` method to convert old format to new format
+  - **Optimization**: Only fetches from libraries that contain selected collections, improving performance
+  - **Status**: ✅ Successfully tested with 47 papers from 3 collections
+
 ### Zotero Sync Improvements - Major Fix
 - **Force Full Sync Option** - New option to bypass timestamp filtering
   - Addresses "0 papers synced" issue when timestamp filtering is too restrictive

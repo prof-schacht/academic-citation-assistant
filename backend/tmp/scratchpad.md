@@ -17,11 +17,38 @@ Creating a comprehensive logging system for the Academic Citation Assistant to t
 5. Add real-time log updates
 
 ### Progress
-- [ ] Create SystemLog model
-- [ ] Create database migration
-- [ ] Create log schemas
-- [ ] Add log API endpoints
-- [ ] Update services to use logging
+- [x] Create SystemLog model
+- [x] Create database migration
+- [x] Create log schemas
+- [x] Add log API endpoints
+- [x] Update services to use logging
 - [ ] Create frontend log viewer
 - [ ] Add real-time updates
-- [ ] Add log filtering and search
+- [x] Add log filtering and search
+
+### Completed Backend Implementation
+
+1. **SystemLog Model**: Created with levels (DEBUG, INFO, WARNING, ERROR, CRITICAL) and categories (ZOTERO_SYNC, PDF_PROCESSING, SYSTEM, etc.)
+
+2. **LoggingService**: Centralized service for creating and managing logs
+   - Methods for log_info, log_error, log_warning
+   - Log statistics and cleanup functions
+   - Async and sync variants
+
+3. **API Endpoints** (`/api/v1/logs`):
+   - GET `/` - Paginated log listing with filters
+   - GET `/stats` - Log statistics (superuser only)
+   - DELETE `/old` - Clean up old logs (superuser only)
+
+4. **Service Integration**:
+   - Zotero sync logging at key points
+   - PDF processing success/failure logging
+   - File not found error tracking
+   - Connection test logging
+
+5. **Features**:
+   - Pagination (up to 100 per page)
+   - Filtering by level, category, user, date range
+   - Search in messages
+   - Entity tracking (paper_id, attachment_id, etc.)
+   - Error trace capture

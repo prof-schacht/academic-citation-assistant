@@ -2,6 +2,28 @@
 
 ## Recent Updates (July 15, 2025)
 
+### New: System Logging and Monitoring
+- **Comprehensive Logging System** - Track all system activities and debug issues
+  - **Log Categories**: Zotero sync, PDF processing, authentication, API calls, database operations
+  - **Log Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  - **Log Viewer API**: View logs with pagination, filtering, and search
+  - **Error Tracking**: Detailed error traces with context for debugging
+  - **File Not Found Tracking**: Specific logging for missing PDF files
+  
+- **API Endpoints for Logs**:
+  - `GET /api/v1/logs` - View logs (regular users see only their logs, superusers see all)
+  - `GET /api/v1/logs/stats` - Log statistics (superuser only)
+  - `DELETE /api/v1/logs/old` - Clean up old logs (superuser only)
+  
+- **Log Filtering Options**:
+  - By level: `?level=ERROR`
+  - By category: `?category=PDF_PROCESSING`
+  - By date range: `?start_date=2025-07-15&end_date=2025-07-16`
+  - By search term: `?search=file%20not%20found`
+  - Pagination: `?page=1&per_page=50`
+
+## Recent Updates (July 15, 2025)
+
 ### Zotero Sync - Final Verification Complete ✅
 - **All Systems Operational** - Comprehensive testing confirms sync is working correctly
   - **Papers Syncing**: ✅ 47 papers successfully imported from 3 collections

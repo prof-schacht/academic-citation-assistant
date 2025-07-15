@@ -192,7 +192,13 @@ async def log_async_info(
     """Log an info message asynchronously."""
     # For async sessions, we need to handle this differently
     # Create a sync session temporarily for logging
-    from app.db.session import SessionLocal
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.core.config import settings
+    
+    # Create sync engine and session
+    sync_engine = create_engine(settings.database_url.replace("postgresql+asyncpg", "postgresql"))
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
     
     sync_db = SessionLocal()
     try:
@@ -226,7 +232,13 @@ async def log_async_error(
     """Log an error message asynchronously."""
     # For async sessions, we need to handle this differently
     # Create a sync session temporarily for logging
-    from app.db.session import SessionLocal
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.core.config import settings
+    
+    # Create sync engine and session
+    sync_engine = create_engine(settings.database_url.replace("postgresql+asyncpg", "postgresql"))
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
     
     sync_db = SessionLocal()
     try:

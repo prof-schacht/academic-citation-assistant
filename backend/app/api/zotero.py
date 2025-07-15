@@ -178,17 +178,27 @@ async def get_zotero_status(
         raise HTTPException(status_code=500, detail="Failed to get Zotero status")
 
 
+class ZoteroSyncRequest(BaseModel):
+    """Request model for Zotero sync."""
+    force_full_sync: bool = Field(False, description="Force a full sync ignoring last sync timestamp")
+
+
 @router.post("/sync", response_model=ZoteroSyncResponse)
 async def sync_zotero(
-    background_tasks: BackgroundTasks,
+    sync_request: ZoteroSyncRequest = ZoteroSyncRequest(),
+    background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> ZoteroSyncResponse:
     """Trigger a manual sync with Zotero."""
     try:
+        logger.info(f"Starting Zotero sync for user {current_user.id} (force_full_sync={sync_request.force_full_sync})")
+        
         # Run sync immediately (in production, this should be a background task)
         async with ZoteroService(db, current_user.id) as service:
-            new_papers, updated_papers, failed_papers = await service.sync_library()
+            new_papers, updated_papers, failed_papers = await service.sync_library(
+                force_full_sync=sync_request.force_full_sync
+            )
         
         return ZoteroSyncResponse(
             success=True,
@@ -309,3 +319,55 @@ async def get_sync_progress(
     except Exception as e:
         logger.error(f"Failed to get sync progress: {e}")
         raise HTTPException(status_code=500, detail="Failed to get sync progress")
+
+
+@router.get("/debug/config")
+async def get_debug_config(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> dict:
+    """Get debug information about Zotero configuration."""
+    try:
+        from sqlalchemy import select
+        from app.models import ZoteroConfig
+        
+        result = await db.execute(
+            select(ZoteroConfig).where(ZoteroConfig.user_id == current_user.id)
+        )
+        config = result.scalar_one_or_none()
+        
+        if not config:
+            return {"error": "No Zotero configuration found"}
+        
+        # Parse selected groups and collections
+        selected_groups = []
+        selected_collections = []
+        
+        if config.selected_groups:
+            try:
+                selected_groups = json.loads(config.selected_groups)
+            except:
+                selected_groups = ["Error parsing groups"]
+                
+        if config.selected_collections:
+            try:
+                selected_collections = json.loads(config.selected_collections)
+            except:
+                selected_collections = ["Error parsing collections"]
+        
+        return {
+            "user_id": str(current_user.id),
+            "zotero_user_id": config.zotero_user_id,
+            "api_key_configured": bool(config.api_key),
+            "auto_sync_enabled": config.auto_sync_enabled,
+            "sync_interval_minutes": config.sync_interval_minutes,
+            "last_sync": config.last_sync.isoformat() if config.last_sync else None,
+            "last_sync_status": config.last_sync_status,
+            "selected_groups": selected_groups,
+            "selected_collections": selected_collections,
+            "created_at": config.created_at.isoformat(),
+            "updated_at": config.updated_at.isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get debug config: {e}")
+        return {"error": str(e)}

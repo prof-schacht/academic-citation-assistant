@@ -12,7 +12,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
-from app.models import Paper, User, ZoteroSync, ZoteroConfig
+from app.models import Paper, User, ZoteroSync, ZoteroConfig, PaperChunk
 from app.services.paper_processor import PaperProcessorService
 from app.core.config import settings
 
@@ -135,15 +135,25 @@ class ZoteroService:
         # If no groups/collections selected, fetch from user's personal library
         if not libraries_to_fetch and not selected_collections:
             libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
+            logger.info("No specific groups or collections selected - fetching from personal library")
         
         # If we have old-format collections but no libraries, we need to fetch from all libraries
         # to find where these collections belong (backward compatibility)
         if selected_collections and not libraries_to_fetch:
             # Add user's personal library
             libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
-            # We should ideally fetch groups too, but that would require an additional API call
-            # For now, we'll just check the personal library
-            logger.warning("Collections selected without library information - checking personal library only")
+            # Also add all groups the user has access to
+            try:
+                groups = await self.fetch_groups()
+                for group in groups:
+                    if group["type"] != "user":  # Skip the personal library entry
+                        libraries_to_fetch.add(group["id"])
+                logger.warning(f"Collections selected without library information - checking {len(libraries_to_fetch)} libraries")
+            except Exception as e:
+                logger.error(f"Failed to fetch groups for collection search: {e}")
+                logger.warning("Collections selected without library information - checking personal library only")
+        
+        logger.info(f"Will fetch from {len(libraries_to_fetch)} libraries: {list(libraries_to_fetch)}")
         
         # Update progress
         self._update_sync_progress(
@@ -250,6 +260,8 @@ class ZoteroService:
                         item_collections = item.get("data", {}).get("collections", [])
                         if not any(col in filter_collections for col in item_collections):
                             continue
+                        else:
+                            logger.debug(f"Item {item.get('key')} matches collection filter")
                     
                     # This is a paper item
                     papers.append(item)
@@ -264,7 +276,14 @@ class ZoteroService:
                 # Small delay to respect rate limits
                 await asyncio.sleep(0.1)
         
-        logger.info(f"Fetched {len(papers)} papers and {sum(len(atts) for atts in attachments_by_parent.values())} PDF attachments from {library_id}")
+        attachment_count = sum(len(atts) for atts in attachments_by_parent.values())
+        logger.info(f"Library {library_id}: Found {len(papers)} papers and {attachment_count} PDF attachments")
+        
+        if filter_collections and papers:
+            logger.info(f"Collection filter applied: {len(papers)} papers match collections {filter_collections}")
+        elif filter_collections and not papers:
+            logger.warning(f"No papers found in collections {filter_collections} for library {library_id}")
+            
         return papers, attachments_by_parent
     
     def _extract_paper_metadata(self, item: Dict[str, Any]) -> Dict[str, Any]:
@@ -360,16 +379,21 @@ class ZoteroService:
             logger.error(f"Error downloading PDF attachment {attachment_key}: {e}")
             return None
     
-    async def sync_library(self) -> Tuple[int, int, int]:
+    async def sync_library(self, force_full_sync: bool = False) -> Tuple[int, int, int]:
         """
         Sync entire Zotero library.
         
+        Args:
+            force_full_sync: If True, sync all items regardless of last sync time
+            
         Returns:
             Tuple of (new_papers, updated_papers, failed_papers)
         """
         new_papers = 0
         updated_papers = 0
         failed_papers = 0
+        
+        logger.info(f"Starting Zotero sync (force_full_sync={force_full_sync})")
         
         # Initialize progress
         self._update_sync_progress(
@@ -381,11 +405,22 @@ class ZoteroService:
             libraries_total=0
         )
         
-        # Get last sync time
-        last_sync = self._config.last_sync if self._config else None
+        # Get last sync time (only use if not forcing full sync)
+        last_sync = None if force_full_sync else (self._config.last_sync if self._config else None)
+        
+        if force_full_sync:
+            logger.info("Force full sync enabled - ignoring last sync timestamp")
+        elif last_sync:
+            logger.info(f"Incremental sync - fetching items modified since {last_sync}")
+        else:
+            logger.info("No previous sync found - performing full sync")
         
         # Fetch items from Zotero (papers and attachments)
         papers, attachments_by_parent = await self.fetch_library_items(modified_since=last_sync)
+        
+        logger.info(f"Fetched {len(papers)} papers from Zotero")
+        if not papers:
+            logger.warning("No papers found to sync. Check your Zotero library and collection settings.")
         
         # Update progress
         self._update_sync_progress(
@@ -426,6 +461,7 @@ class ZoteroService:
                 
                 # Skip if already synced and not updated
                 if existing_sync and existing_sync.zotero_version >= zotero_version:
+                    logger.debug(f"Skipping paper {zotero_key} - already up to date (version {zotero_version})")
                     continue
                 
                 # Extract metadata
@@ -483,8 +519,13 @@ class ZoteroService:
                     self.db.add(sync_record)
                     await self.db.flush()
                 
-                # Download and process PDF if it's a new paper or newly linked
-                if not existing_sync and not paper.file_path:
+                # Download and process PDF if:
+                # 1. It's a new paper or newly linked (not existing_sync)
+                # 2. Paper doesn't have a file yet (not paper.file_path)
+                # 3. Paper isn't processed yet (not paper.is_processed)
+                should_process_pdf = not existing_sync and (not paper.file_path or not paper.is_processed)
+                
+                if should_process_pdf:
                     # Check if we have PDF attachments for this paper
                     pdf_attachments = attachments_by_parent.get(zotero_key, [])
                     
@@ -500,11 +541,23 @@ class ZoteroService:
                             paper.file_path = file_path
                             paper.file_hash = self._calculate_file_hash(file_path)
                             
-                            # Queue for processing
-                            await PaperProcessorService.process_paper(
-                                str(paper.id),
-                                file_path
-                            )
+                            # Save to get paper ID if needed
+                            await self.db.flush()
+                            
+                            logger.info(f"Processing PDF for paper {paper.id}: {paper.title[:50]}...")
+                            
+                            # Process the paper asynchronously (chunks and embeddings)
+                            try:
+                                await PaperProcessorService.process_paper(
+                                    str(paper.id),
+                                    file_path
+                                )
+                                logger.info(f"Successfully processed PDF for paper {paper.id}")
+                            except Exception as process_error:
+                                logger.error(f"Failed to process PDF for paper {paper.id}: {process_error}")
+                                paper.processing_error = str(process_error)
+                                paper.is_processed = False
+                            
                             await self.db.flush()
                             
                             # Only process the first PDF
@@ -512,12 +565,25 @@ class ZoteroService:
                     else:
                         # No PDF attachments found
                         logger.info(f"No PDF attachments found for paper {zotero_key}: {paper.title[:50]}...")
+                elif existing_sync and paper.file_path and not paper.is_processed:
+                    # Paper exists with file but wasn't processed - process it now
+                    logger.info(f"Reprocessing existing PDF for paper {paper.id}: {paper.title[:50]}...")
+                    try:
+                        await PaperProcessorService.process_paper(
+                            str(paper.id),
+                            paper.file_path
+                        )
+                        logger.info(f"Successfully reprocessed PDF for paper {paper.id}")
+                    except Exception as process_error:
+                        logger.error(f"Failed to reprocess PDF for paper {paper.id}: {process_error}")
+                        paper.processing_error = str(process_error)
+                        paper.is_processed = False
                 
                 # Commit this item's changes
                 await self.db.commit()
                 
             except Exception as e:
-                logger.error(f"Failed to sync Zotero item {item.get('key')}: {e}")
+                logger.error(f"Failed to sync Zotero item {item.get('key')}: {e}", exc_info=True)
                 failed_papers += 1
                 
                 # Rollback any changes for this item
@@ -544,6 +610,9 @@ class ZoteroService:
             message=f"Sync complete: {new_papers} new, {updated_papers} updated, {failed_papers} failed"
         )
         
+        # Log processing status
+        await self._log_processing_status()
+        
         logger.info(f"Zotero sync complete: {new_papers} new, {updated_papers} updated, {failed_papers} failed")
         logger.info(f"Total attachments available: {sum(len(atts) for atts in attachments_by_parent.values())}")
         return new_papers, updated_papers, failed_papers
@@ -555,6 +624,35 @@ class ZoteroService:
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
+    
+    async def _log_processing_status(self):
+        """Log the processing status of all papers."""
+        # Count papers by processing status
+        result = await self.db.execute(
+            select(Paper)
+            .join(ZoteroSync)
+            .where(ZoteroSync.user_id == self.user_id)
+        )
+        papers = result.scalars().all()
+        
+        total_papers = len(papers)
+        processed_papers = sum(1 for p in papers if p.is_processed)
+        papers_with_files = sum(1 for p in papers if p.file_path)
+        papers_with_errors = sum(1 for p in papers if p.processing_error)
+        
+        logger.info(f"\nPaper Processing Status:")
+        logger.info(f"  Total papers: {total_papers}")
+        logger.info(f"  Papers with files: {papers_with_files}")
+        logger.info(f"  Successfully processed: {processed_papers}")
+        logger.info(f"  Processing errors: {papers_with_errors}")
+        logger.info(f"  Not processed yet: {total_papers - processed_papers - papers_with_errors}")
+        
+        # Log papers with errors for debugging
+        if papers_with_errors > 0:
+            logger.warning("Papers with processing errors:")
+            for paper in papers:
+                if paper.processing_error:
+                    logger.warning(f"  - {paper.title[:50]}...: {paper.processing_error}")
     
     async def configure(self, api_key: str, zotero_user_id: str) -> ZoteroConfig:
         """

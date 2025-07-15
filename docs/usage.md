@@ -2,6 +2,23 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero Sync Improvements - Major Fix
+- **Force Full Sync Option** - New option to bypass timestamp filtering
+  - Addresses "0 papers synced" issue when timestamp filtering is too restrictive
+  - API endpoint now accepts `{"force_full_sync": true}` parameter
+  - Frontend support coming soon
+  
+- **Enhanced Collection Sync** - Better handling of collection filtering
+  - Improved logic to search all user groups when collections are selected
+  - Better backward compatibility with old collection format
+  - Comprehensive logging to debug sync issues
+  
+- **PDF Processing Improvements** - Automatic processing for search
+  - All PDFs are now automatically processed for chunking and embeddings
+  - Reprocesses papers that have files but weren't processed
+  - Better error handling and status reporting
+  - Shows processing statistics after sync completes
+
 ### Zotero Sync Timestamp Issue Fixed
 - **0 Papers Returned Bug** - Fixed critical issue where sync returned 0 papers despite having papers available
   - **Root Cause**: Timestamp filtering logic used `last_sync` timestamp to filter items, but recent timestamps caused API to return 0 results

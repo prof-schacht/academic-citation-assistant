@@ -1,10 +1,19 @@
 # Usage Guide - Academic Citation Assistant
 
-## Recent Updates (July 14, 2025)
+## Recent Updates (July 15, 2025)
+
+### Zotero Integration - Enhanced
+- **Group and Collection Selection** - Choose specific libraries and collections to sync
+  - Select multiple Zotero groups/libraries
+  - Filter by specific collections within libraries
+  - Sync only the papers you need
+  - Visual UI for easy selection with checkboxes
+
+## Previous Updates (July 14, 2025)
 
 ### Zotero Integration
 - **Automatic Paper Sync** - Connect your Zotero library for automatic imports
-  - Configure with API key and User ID
+  - Configure with API key and User ID (User ID: 5008235 for your account)
   - Sync papers with full metadata (title, authors, year, journal)
   - Download PDFs automatically
   - Configurable sync intervals (default: 30 minutes)
@@ -390,6 +399,44 @@ ws://localhost:8000/ws/citations?user_id={user_id}
 - **Rate Limiting**: 60 requests per minute per user
 - **Connection Management**: Automatic reconnection with exponential backoff
 
+## Zotero Integration Guide
+
+### Setting Up Zotero Sync
+
+1. **Get Your Zotero Credentials:**
+   - Go to [Zotero Settings → Keys](https://www.zotero.org/settings/keys)
+   - Create a new private key with library read access
+   - Note your User ID (for your account: 5008235)
+   - Copy your API Key
+
+2. **Configure in the App:**
+   - Navigate to Paper Library → Zotero Settings
+   - Enter your User ID and API Key
+   - Click "Connect to Zotero"
+
+3. **Select Libraries and Collections:**
+   - After connecting, you'll see your available libraries
+   - Check the libraries you want to sync
+   - Optionally select specific collections
+   - Click "Update Settings" to save
+
+4. **Manual or Automatic Sync:**
+   - Click "Sync Now" for immediate sync
+   - Enable auto-sync with customizable intervals
+   - Monitor sync status in the UI
+
+### Troubleshooting Zotero Integration
+
+1. **Authentication Issues:**
+   - Ensure you're using the test user (UUID: 00000000-0000-0000-0000-000000000001)
+   - Check that your API key has library read permissions
+   - Verify your User ID is correct
+
+2. **Sync Issues:**
+   - Check the sync status message for specific errors
+   - Ensure selected libraries/collections contain papers
+   - Verify network connectivity to Zotero API
+
 ---
 
-Last updated: 2025-07-14
+Last updated: 2025-07-15

@@ -2,7 +2,7 @@
  * Zotero integration service
  */
 
-import api from './api';
+import { api } from './api';
 
 export interface ZoteroConfig {
   apiKey: string;

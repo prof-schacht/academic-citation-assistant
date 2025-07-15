@@ -100,6 +100,7 @@ class ZoteroService:
         selected_groups = []
         selected_collections = []
         selected_collections_by_library = {}  # Map library_id -> [collection_keys]
+        has_old_format_collections = False
         
         if self._config.selected_groups:
             try:
@@ -123,35 +124,42 @@ class ZoteroService:
                     else:
                         # Old format - just collection key
                         selected_collections.append(collection)
+                        has_old_format_collections = True
             except:
                 selected_collections = []
+        
+        logger.info(f"Selected collections: {selected_collections}")
+        logger.info(f"Collections by library: {selected_collections_by_library}")
+        logger.info(f"Has old format collections: {has_old_format_collections}")
         
         # Determine which libraries to fetch from
         libraries_to_fetch = set(selected_groups)
         
-        # Add libraries that contain selected collections
+        # Add libraries that contain selected collections (new format)
         libraries_to_fetch.update(selected_collections_by_library.keys())
         
-        # If no groups/collections selected, fetch from user's personal library
-        if not libraries_to_fetch and not selected_collections:
-            libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
-            logger.info("No specific groups or collections selected - fetching from personal library")
-        
-        # If we have old-format collections but no libraries, we need to fetch from all libraries
-        # to find where these collections belong (backward compatibility)
-        if selected_collections and not libraries_to_fetch:
-            # Add user's personal library
-            libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
-            # Also add all groups the user has access to
+        # If we have old-format collections, we need to search all libraries
+        if has_old_format_collections:
+            logger.info("Old format collections detected - will search all available libraries")
+            # First, always check user's personal library
+            personal_library = f"users/{self._config.zotero_user_id}"
+            libraries_to_fetch.add(personal_library)
+            
+            # Then add all groups the user has access to
             try:
                 groups = await self.fetch_groups()
                 for group in groups:
                     if group["type"] != "user":  # Skip the personal library entry
                         libraries_to_fetch.add(group["id"])
-                logger.warning(f"Collections selected without library information - checking {len(libraries_to_fetch)} libraries")
+                logger.info(f"Will search {len(libraries_to_fetch)} libraries for collections: {selected_collections}")
             except Exception as e:
                 logger.error(f"Failed to fetch groups for collection search: {e}")
-                logger.warning("Collections selected without library information - checking personal library only")
+                logger.warning("Will only search personal library for collections")
+        
+        # If no specific selections, fetch from user's personal library
+        if not libraries_to_fetch and not selected_collections:
+            libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
+            logger.info("No specific groups or collections selected - fetching from personal library")
         
         logger.info(f"Will fetch from {len(libraries_to_fetch)} libraries: {list(libraries_to_fetch)}")
         
@@ -163,17 +171,63 @@ class ZoteroService:
             message="Starting to fetch items from Zotero..."
         )
         
+        # For old format collections, we need to discover which library contains them
+        collection_to_library_map = {}
+        if has_old_format_collections:
+            logger.info("Discovering library locations for old format collections...")
+            for library_id in libraries_to_fetch:
+                try:
+                    collections = await self.fetch_collections(library_id)
+                    for col in collections:
+                        if col['key'] in selected_collections:
+                            collection_to_library_map[col['key']] = library_id
+                            logger.info(f"Found collection {col['key']} ({col['name']}) in library {library_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch collections from {library_id}: {e}")
+            
+            # Log collections not found in any library
+            not_found = [c for c in selected_collections if c not in collection_to_library_map and not isinstance(c, dict)]
+            if not_found:
+                logger.warning(f"Collections not found in any library: {not_found}")
+        
         # Fetch items from each library
         library_count = 0
         for library_id in libraries_to_fetch:
             # Determine which collections to filter for this library
-            library_collections = selected_collections_by_library.get(library_id, selected_collections)
+            library_collections = []
+            
+            # Add collections explicitly assigned to this library (new format)
+            if library_id in selected_collections_by_library:
+                library_collections.extend(selected_collections_by_library[library_id])
+            
+            # Add old format collections that we found in this library
+            if has_old_format_collections:
+                for col_key, lib_id in collection_to_library_map.items():
+                    if lib_id == library_id and col_key not in library_collections:
+                        library_collections.append(col_key)
+            
+            # Skip this library if:
+            # 1. We have selected collections AND
+            # 2. This library has no collections to filter
+            # This prevents fetching entire libraries when looking for specific collections
+            if selected_collections and not library_collections:
+                logger.info(f"Skipping {library_id} - no selected collections in this library")
+                continue
+            
+            # Only apply collection filter if we have collections for this library
+            filter_collections = library_collections if library_collections else None
+            
+            logger.info(f"Fetching from {library_id} with collection filter: {filter_collections}")
             
             papers, attachments = await self._fetch_items_from_library(
                 library_id, 
                 modified_since, 
-                library_collections if library_collections else None
+                filter_collections
             )
+            
+            if papers:
+                logger.info(f"Found {len(papers)} papers in {library_id}")
+            
             all_papers.extend(papers)
             # Merge attachments dictionaries
             for key, value in attachments.items():
@@ -261,7 +315,7 @@ class ZoteroService:
                         if not any(col in filter_collections for col in item_collections):
                             continue
                         else:
-                            logger.debug(f"Item {item.get('key')} matches collection filter")
+                            logger.debug(f"Item {item.get('key')} matches collection filter - collections: {item_collections}")
                     
                     # This is a paper item
                     papers.append(item)
@@ -752,3 +806,79 @@ class ZoteroService:
                     })
         
         return collections
+    
+    async def migrate_collection_format(self) -> bool:
+        """
+        Migrate old format collections (just keys) to new format (with library IDs).
+        
+        Returns:
+            True if migration was performed, False if no migration needed
+        """
+        if not self._config or not self._config.selected_collections:
+            return False
+            
+        import json
+        try:
+            collections_data = json.loads(self._config.selected_collections)
+            needs_migration = False
+            migrated_collections = []
+            
+            # Check if any collections are in old format
+            for collection in collections_data:
+                if isinstance(collection, str):
+                    needs_migration = True
+                    break
+                elif isinstance(collection, dict) and 'key' in collection and 'libraryId' in collection:
+                    # Already in new format
+                    migrated_collections.append(collection)
+                    
+            if not needs_migration:
+                logger.info("Collections already in new format - no migration needed")
+                return False
+                
+            logger.info("Migrating collections from old format to new format...")
+            
+            # Get all available collections from all libraries
+            collection_map = {}  # key -> {libraryId, name}
+            
+            # Fetch from all libraries
+            groups = await self.fetch_groups()
+            for group in groups:
+                library_id = group['id']
+                try:
+                    collections = await self.fetch_collections(library_id)
+                    for col in collections:
+                        key = col['key']
+                        if key not in collection_map:
+                            collection_map[key] = {
+                                'key': key,
+                                'libraryId': library_id,
+                                'name': col['name']
+                            }
+                except Exception as e:
+                    logger.warning(f"Failed to fetch collections from {library_id}: {e}")
+                    
+            # Migrate old format collections
+            for collection in collections_data:
+                if isinstance(collection, str):
+                    # Old format - find library
+                    if collection in collection_map:
+                        migrated = collection_map[collection]
+                        migrated_collections.append({
+                            'key': migrated['key'],
+                            'libraryId': migrated['libraryId']
+                        })
+                        logger.info(f"Migrated collection {collection} ({migrated['name']}) to library {migrated['libraryId']}")
+                    else:
+                        logger.warning(f"Collection {collection} not found in any library - skipping")
+                        
+            # Update configuration
+            self._config.selected_collections = json.dumps(migrated_collections)
+            await self.db.commit()
+            
+            logger.info(f"Migration complete - migrated {len(migrated_collections)} collections")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to migrate collections: {e}")
+            return False

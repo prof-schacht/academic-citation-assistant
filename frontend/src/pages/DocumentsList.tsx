@@ -75,7 +75,16 @@ const DocumentsList: React.FC = () => {
   if (isLoading && documents.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">Loading documents...</div>
+        <div className="text-center">
+          <div className="text-lg mb-4">Loading documents...</div>
+          {error && (
+            <div className="text-red-600 text-sm">
+              {error}
+              <br />
+              <span className="text-xs text-gray-500">Make sure the backend server is running</span>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

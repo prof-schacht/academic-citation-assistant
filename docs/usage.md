@@ -2,6 +2,17 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero Group Selection Fixed
+- **Frontend Group Display** - Selected groups now properly show as checked when reloading settings
+  - Status endpoint returns selected groups and collections
+  - Frontend loads saved selections on page load
+  - Checkboxes correctly reflect saved state
+
+- **Group Sync Fixed** - Papers from selected Zotero groups now sync correctly
+  - Fixed API URL construction for group libraries
+  - COAI group (and other groups) now fetch papers properly
+  - Respects group/collection filter during sync
+
 ### Zotero Sync Issues Fixed
 - **Empty DOI Handling** - Papers without DOIs now sync correctly
   - Database now properly stores NULL instead of empty strings for missing DOIs

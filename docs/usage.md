@@ -2,6 +2,15 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero Sync Timestamp Issue Fixed
+- **0 Papers Returned Bug** - Fixed critical issue where sync returned 0 papers despite having papers available
+  - **Root Cause**: Timestamp filtering logic used `last_sync` timestamp to filter items, but recent timestamps caused API to return 0 results
+  - **Solution**: Clear `last_sync` timestamp to force full sync when needed
+  - **Database Fix**: `UPDATE zotero_config SET last_sync = NULL` to reset sync state
+  - **Status**: ✅ 26 papers successfully synced from collection "CPUVP4AQ"
+  - **PDFs**: ✅ 25/26 papers have PDFs downloaded
+  - **Embeddings**: ⚠️ Paper processing has transaction timing issues (known issue)
+
 ### Zotero Collection Sync Fixed
 - **Collection-Only Sync** - Fixed issue where selecting only collections (no groups) would fail
   - Updated collection data format to include library ID: `[{key: "COLLECTION_KEY", libraryId: "users/12345"}]`
@@ -14,6 +23,8 @@
   - Displays progress counters (processed/total papers, libraries processed)
   - New API endpoint: `GET /zotero/sync/progress` for monitoring sync status
   - Progress updates in real-time during sync operations
+  - Visual progress bar with percentage completion and status messages
+  - Automatic polling every second during active sync operations
 
 ### Zotero PDF Sync Fixed
 - **PDF Attachments Now Sync** - PDFs are downloaded during Zotero sync
@@ -480,6 +491,11 @@ ws://localhost:8000/ws/citations?user_id={user_id}
    - Click "Sync Now" for immediate sync
    - Enable auto-sync with customizable intervals
    - Monitor sync status in the UI
+   - Real-time progress bar shows sync progress:
+     - Percentage completion (0-100%)
+     - Current status (e.g., "Fetching items...", "Processing paper 5 of 100")
+     - Item count progress (current/total processed)
+     - Progress updates every second during active sync
 
 ### Troubleshooting Zotero Integration
 

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.citation import Citation
     from app.models.library import LibraryPaper
     from app.models.paper_chunk import PaperChunk
+    from app.models.zotero_sync import ZoteroSync
 
 
 class Paper(Base):
@@ -48,8 +49,11 @@ class Paper(Base):
     reference_count: Mapped[int] = mapped_column(Integer, default=0)
     
     # Source information
-    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'upload', 'semantic_scholar', 'arxiv', etc.
+    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'upload', 'semantic_scholar', 'arxiv', 'zotero', etc.
     source_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # Zotero-specific metadata
+    zotero_key: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     
     # File information (if uploaded)
     file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
@@ -67,6 +71,7 @@ class Paper(Base):
     citations: Mapped[List["Citation"]] = relationship("Citation", back_populates="paper", cascade="all, delete-orphan")
     library_papers: Mapped[List["LibraryPaper"]] = relationship("LibraryPaper", back_populates="paper", cascade="all, delete-orphan")
     chunks: Mapped[List["PaperChunk"]] = relationship("PaperChunk", back_populates="paper", cascade="all, delete-orphan")
+    zotero_sync: Mapped[Optional["ZoteroSync"]] = relationship("ZoteroSync", back_populates="paper", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Paper(id={self.id}, title={self.title[:50]}...)>"

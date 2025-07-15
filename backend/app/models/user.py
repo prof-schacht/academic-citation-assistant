@@ -12,6 +12,7 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from app.models.document import Document
     from app.models.library import Library
+    from app.models.zotero_sync import ZoteroSync, ZoteroConfig
 
 
 class User(Base):
@@ -44,6 +45,8 @@ class User(Base):
     # Relationships
     documents: Mapped[List["Document"]] = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
     libraries: Mapped[List["Library"]] = relationship("Library", back_populates="owner", cascade="all, delete-orphan")
+    zotero_syncs: Mapped[List["ZoteroSync"]] = relationship("ZoteroSync", back_populates="user", cascade="all, delete-orphan")
+    zotero_config: Mapped[Optional["ZoteroConfig"]] = relationship("ZoteroConfig", back_populates="user", cascade="all, delete-orphan", uselist=False)
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email})>"

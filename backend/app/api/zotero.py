@@ -1,0 +1,200 @@
+"""Zotero API endpoints."""
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from app.db.session import get_db
+from app.models import User
+from app.services.zotero_service import ZoteroService
+from app.api.auth import get_current_user
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/zotero", tags=["zotero"])
+
+
+class ZoteroConfigRequest(BaseModel):
+    """Request model for Zotero configuration."""
+    api_key: str = Field(..., description="Zotero API key")
+    zotero_user_id: str = Field(..., description="Numeric Zotero user ID")
+    auto_sync_enabled: bool = Field(True, description="Enable automatic sync")
+    sync_interval_minutes: int = Field(30, description="Sync interval in minutes")
+
+
+class ZoteroConfigResponse(BaseModel):
+    """Response model for Zotero configuration."""
+    configured: bool
+    auto_sync_enabled: bool
+    sync_interval_minutes: int
+    last_sync: Optional[str] = None
+    last_sync_status: Optional[str] = None
+
+
+class ZoteroSyncResponse(BaseModel):
+    """Response model for sync operation."""
+    success: bool
+    new_papers: int
+    updated_papers: int
+    failed_papers: int
+    message: str
+
+
+@router.post("/configure", response_model=ZoteroConfigResponse)
+async def configure_zotero(
+    config: ZoteroConfigRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> ZoteroConfigResponse:
+    """Configure Zotero integration for the current user."""
+    try:
+        # Test the connection first
+        async with ZoteroService(db, current_user.id) as service:
+            # Configure
+            zotero_config = await service.configure(
+                api_key=config.api_key,
+                zotero_user_id=config.zotero_user_id
+            )
+            
+            # Update sync settings
+            zotero_config.auto_sync_enabled = config.auto_sync_enabled
+            zotero_config.sync_interval_minutes = config.sync_interval_minutes
+            await db.commit()
+            
+            # Test connection
+            connection_ok = await service.test_connection()
+            if not connection_ok:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid Zotero credentials or user ID"
+                )
+        
+        return ZoteroConfigResponse(
+            configured=True,
+            auto_sync_enabled=zotero_config.auto_sync_enabled,
+            sync_interval_minutes=zotero_config.sync_interval_minutes,
+            last_sync=zotero_config.last_sync.isoformat() if zotero_config.last_sync else None,
+            last_sync_status=zotero_config.last_sync_status
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to configure Zotero: {e}")
+        raise HTTPException(status_code=500, detail="Failed to configure Zotero")
+
+
+@router.get("/status", response_model=ZoteroConfigResponse)
+async def get_zotero_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> ZoteroConfigResponse:
+    """Get current Zotero configuration status."""
+    try:
+        from sqlalchemy import select
+        from app.models import ZoteroConfig
+        
+        result = await db.execute(
+            select(ZoteroConfig).where(ZoteroConfig.user_id == current_user.id)
+        )
+        config = result.scalar_one_or_none()
+        
+        if not config:
+            return ZoteroConfigResponse(
+                configured=False,
+                auto_sync_enabled=False,
+                sync_interval_minutes=0
+            )
+        
+        return ZoteroConfigResponse(
+            configured=True,
+            auto_sync_enabled=config.auto_sync_enabled,
+            sync_interval_minutes=config.sync_interval_minutes,
+            last_sync=config.last_sync.isoformat() if config.last_sync else None,
+            last_sync_status=config.last_sync_status
+        )
+    except Exception as e:
+        logger.error(f"Failed to get Zotero status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get Zotero status")
+
+
+@router.post("/sync", response_model=ZoteroSyncResponse)
+async def sync_zotero(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> ZoteroSyncResponse:
+    """Trigger a manual sync with Zotero."""
+    try:
+        # Run sync immediately (in production, this should be a background task)
+        async with ZoteroService(db, current_user.id) as service:
+            new_papers, updated_papers, failed_papers = await service.sync_library()
+        
+        return ZoteroSyncResponse(
+            success=True,
+            new_papers=new_papers,
+            updated_papers=updated_papers,
+            failed_papers=failed_papers,
+            message=f"Sync completed: {new_papers} new, {updated_papers} updated, {failed_papers} failed"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to sync Zotero: {e}")
+        raise HTTPException(status_code=500, detail="Failed to sync with Zotero")
+
+
+@router.post("/test-connection")
+async def test_zotero_connection(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> dict:
+    """Test the Zotero API connection."""
+    try:
+        async with ZoteroService(db, current_user.id) as service:
+            connection_ok = await service.test_connection()
+            
+        return {
+            "connected": connection_ok,
+            "message": "Connection successful" if connection_ok else "Connection failed"
+        }
+    except ValueError as e:
+        return {
+            "connected": False,
+            "message": str(e)
+        }
+    except Exception as e:
+        logger.error(f"Failed to test Zotero connection: {e}")
+        return {
+            "connected": False,
+            "message": "Connection test failed"
+        }
+
+
+@router.delete("/disconnect")
+async def disconnect_zotero(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> dict:
+    """Disconnect Zotero integration."""
+    try:
+        from sqlalchemy import select, delete
+        from app.models import ZoteroConfig, ZoteroSync
+        
+        # Delete sync records
+        await db.execute(
+            delete(ZoteroSync).where(ZoteroSync.user_id == current_user.id)
+        )
+        
+        # Delete config
+        await db.execute(
+            delete(ZoteroConfig).where(ZoteroConfig.user_id == current_user.id)
+        )
+        
+        await db.commit()
+        
+        return {"success": True, "message": "Zotero disconnected"}
+    except Exception as e:
+        logger.error(f"Failed to disconnect Zotero: {e}")
+        raise HTTPException(status_code=500, detail="Failed to disconnect Zotero")

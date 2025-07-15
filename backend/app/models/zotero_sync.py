@@ -64,6 +64,10 @@ class ZoteroConfig(Base):
     last_sync: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_sync_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
+    # Selected groups and collections (JSON arrays of IDs)
+    selected_groups: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # JSON array of group IDs
+    selected_collections: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # JSON array of collection keys
+    
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

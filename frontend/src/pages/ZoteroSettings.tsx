@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zoteroService } from '../services/zoteroService';
-import type { ZoteroStatus, ZoteroConfig, ZoteroGroup, ZoteroCollection } from '../services/zoteroService';
+import type { ZoteroStatus, ZoteroConfig, ZoteroGroup, ZoteroCollection, ZoteroSyncProgress } from '../services/zoteroService';
+import ProgressBar from '../components/ProgressBar';
 
 const ZoteroSettings: React.FC = () => {
   const navigate = useNavigate();
@@ -22,10 +23,50 @@ const ZoteroSettings: React.FC = () => {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<ZoteroSyncProgress | null>(null);
+  const [showProgress, setShowProgress] = useState(false);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadStatus();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const startProgressPolling = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+    
+    progressIntervalRef.current = setInterval(async () => {
+      try {
+        const progress = await zoteroService.getSyncProgress();
+        setSyncProgress(progress);
+        
+        if (!progress.active) {
+          stopProgressPolling();
+        }
+      } catch (error) {
+        console.error('Failed to fetch sync progress:', error);
+        // Continue polling even if there's an error
+      }
+    }, 1000); // Poll every second
+  };
+
+  const stopProgressPolling = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setShowProgress(false);
+    setSyncProgress(null);
+  };
 
   const loadStatus = async () => {
     try {
@@ -134,8 +175,13 @@ const ZoteroSettings: React.FC = () => {
     setError(null);
     setSuccess(null);
     setIsSyncing(true);
+    setShowProgress(true);
+    setSyncProgress({ active: true, percentage: 0, status: 'Starting sync...', current_item: 0, total_items: 0 });
     
     try {
+      // Start progress polling
+      startProgressPolling();
+      
       const result = await zoteroService.sync();
       
       // Show detailed sync results
@@ -165,8 +211,10 @@ const ZoteroSettings: React.FC = () => {
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || 'Sync failed';
       setError(`Sync failed: ${errorMessage}`);
+      stopProgressPolling();
     } finally {
       setIsSyncing(false);
+      // Don't hide progress immediately, let polling handle it
     }
   };
 
@@ -234,6 +282,17 @@ const ZoteroSettings: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {showProgress && syncProgress && (
+                <div className="mb-6">
+                  <ProgressBar 
+                    percentage={syncProgress.percentage}
+                    status={syncProgress.status}
+                    currentItem={syncProgress.current_item}
+                    totalItems={syncProgress.total_items}
+                  />
+                </div>
+              )}
 
               <form onSubmit={handleSave} className="space-y-4">
                 <div>

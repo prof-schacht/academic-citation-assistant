@@ -45,6 +45,14 @@ export interface ZoteroCollection {
   libraryId: string;
 }
 
+export interface ZoteroSyncProgress {
+  active: boolean;
+  percentage: number;
+  status: string;
+  current_item: number;
+  total_items: number;
+}
+
 class ZoteroService {
   async configure(config: ZoteroConfig): Promise<ZoteroStatus> {
     const response = await api.post('/zotero/configure', {
@@ -93,6 +101,11 @@ class ZoteroService {
     const response = await api.get('/zotero/collections', {
       params: { library_id: libraryId }
     });
+    return response.data;
+  }
+
+  async getSyncProgress(): Promise<ZoteroSyncProgress> {
+    const response = await api.get('/zotero/sync/progress');
     return response.data;
   }
 

@@ -37,6 +37,14 @@ const ZoteroSettings: React.FC = () => {
         setAutoSyncEnabled(status.autoSyncEnabled);
         setSyncIntervalMinutes(status.syncIntervalMinutes);
         
+        // Set selected groups and collections from status
+        if (status.selectedGroups) {
+          setSelectedGroups(status.selectedGroups);
+        }
+        if (status.selectedCollections) {
+          setSelectedCollections(status.selectedCollections);
+        }
+        
         // Load groups and collections if configured
         try {
           const groupList = await zoteroService.getGroups();
@@ -49,9 +57,6 @@ const ZoteroSettings: React.FC = () => {
             allCollections.push(...cols);
           }
           setCollections(allCollections);
-          
-          // TODO: Load previously selected groups/collections from backend
-          // For now, we'll need to add this to the status endpoint
         } catch (err) {
           console.error('Failed to load groups/collections:', err);
         }

@@ -19,6 +19,8 @@ export interface ZoteroStatus {
   syncIntervalMinutes: number;
   lastSync?: string;
   lastSyncStatus?: string;
+  selectedGroups?: string[];
+  selectedCollections?: string[];
 }
 
 export interface ZoteroSyncResult {
@@ -101,6 +103,8 @@ class ZoteroService {
       syncIntervalMinutes: data.sync_interval_minutes,
       lastSync: data.last_sync,
       lastSyncStatus: data.last_sync_status,
+      selectedGroups: data.selected_groups,
+      selectedCollections: data.selected_collections,
     };
   }
 }

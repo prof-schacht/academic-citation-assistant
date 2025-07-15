@@ -1,4 +1,5 @@
 """Zotero API endpoints."""
+import json
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -34,6 +35,8 @@ class ZoteroConfigResponse(BaseModel):
     sync_interval_minutes: int
     last_sync: Optional[str] = None
     last_sync_status: Optional[str] = None
+    selected_groups: Optional[List[str]] = None
+    selected_collections: Optional[List[str]] = None
 
 
 class ZoteroSyncResponse(BaseModel):
@@ -128,7 +131,9 @@ async def configure_zotero(
             auto_sync_enabled=zotero_config.auto_sync_enabled,
             sync_interval_minutes=zotero_config.sync_interval_minutes,
             last_sync=zotero_config.last_sync.isoformat() if zotero_config.last_sync else None,
-            last_sync_status=zotero_config.last_sync_status
+            last_sync_status=zotero_config.last_sync_status,
+            selected_groups=json.loads(zotero_config.selected_groups) if zotero_config.selected_groups else None,
+            selected_collections=json.loads(zotero_config.selected_collections) if zotero_config.selected_collections else None
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -164,7 +169,9 @@ async def get_zotero_status(
             auto_sync_enabled=config.auto_sync_enabled,
             sync_interval_minutes=config.sync_interval_minutes,
             last_sync=config.last_sync.isoformat() if config.last_sync else None,
-            last_sync_status=config.last_sync_status
+            last_sync_status=config.last_sync_status,
+            selected_groups=json.loads(config.selected_groups) if config.selected_groups else None,
+            selected_collections=json.loads(config.selected_collections) if config.selected_collections else None
         )
     except Exception as e:
         logger.error(f"Failed to get Zotero status: {e}")

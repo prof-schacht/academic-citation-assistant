@@ -126,7 +126,7 @@ class ZoteroService:
         items = []
         start = 0
         
-        # Build base URL
+        # Build base URL - library_id already contains the prefix (e.g., "groups/4965330")
         base_url = f"{self.BASE_URL}/{library_id}/items"
         params = {
             "limit": self.ITEMS_PER_PAGE,

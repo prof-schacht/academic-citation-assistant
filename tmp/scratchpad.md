@@ -1,369 +1,44 @@
-# Development Log
+# Zotero Sync Fix - Development Process
 
-## 2025-07-13: Project Initialization
+## Issues Identified (2025-07-15)
 
-### Phase I Implementation Started
-- Created project directory structure:
-  - backend/ - FastAPI Python backend
-  - frontend/ - React TypeScript frontend
-  - tmp/ - Development tracking
-  - tests/ - Test files
-  - shared/ - Shared types/utilities
-  - scripts/ - Build/deployment scripts
+1. **Frontend not showing saved groups**: 
+   - Database shows COAI is saved as `["groups/4965330"]` 
+   - Frontend doesn't show it as selected when loading
+   - The `/status` endpoint doesn't return selected_groups/selected_collections
 
-### Completed
-- ✅ Initialized git branch: feature/phase-1-implementation
-- ✅ Set up Python backend with uv and FastAPI
-- ✅ Created core configuration module
-- ✅ Implemented health check endpoints (/health, /health/ready, /health/live)
-- ✅ Set up main FastAPI application with CORS
+2. **Sync not fetching from selected groups**: 
+   - The COAI group has 2268 items but the sync returned "0 new"
+   - Issue in `_fetch_items_from_library` method - wrong URL format
 
-- ✅ Set up React frontend with Vite and TypeScript
-- ✅ Configured TailwindCSS for styling
-- ✅ Created Docker Compose configuration
-- ✅ Added development Dockerfiles
-- ✅ Created project-wide scripts in package.json
+3. **Only 5 papers in library**: 
+   - These seem to be from previous tests, not from COAI
 
-### Project Structure
-```
-academic-citation-assistant/
-├── backend/          # FastAPI Python backend
-│   ├── app/         # Application code
-│   ├── .env         # Environment variables
-│   └── run.py       # Development server
-├── frontend/        # React TypeScript frontend
-│   ├── src/         # Source code
-│   └── vite.config  # Vite configuration
-├── docker-compose.yml
-└── package.json     # Root scripts
-```
+## Root Causes
 
-### How to Test Current Implementation
+1. **Status endpoint missing data**: The `/zotero/status` endpoint doesn't return `selected_groups` and `selected_collections`
+2. **Wrong API URL format**: In `_fetch_items_from_library`, the URL is built as `/users/12345/items` or `/groups/67890/items` but the library_id already contains the prefix
+3. **Frontend doesn't load saved selections**: Even if the backend returned the data, the frontend doesn't use it
 
-1. **Using Docker Compose (Recommended)**:
-   ```bash
-   # Start all services
-   docker-compose up
-   
-   # Or if you prefer npm scripts
-   npm run dev
-   ```
-   
-   - Frontend will be available at: http://localhost:3000
-   - Backend API at: http://localhost:8000
-   - API docs at: http://localhost:8000/docs
-   - Health check at: http://localhost:8000/api/health
+## Fixes Implemented
 
-2. **Without Docker**:
-   ```bash
-   # Terminal 1: Start PostgreSQL and Redis (must be installed)
-   # Terminal 2: Backend
-   cd backend
-   source .venv/bin/activate
-   python run.py
-   
-   # Terminal 3: Frontend
-   cd frontend
-   npm run dev
-   ```
+### Backend Changes (app/api/zotero.py)
+1. ✅ Updated `ZoteroConfigResponse` model to include `selected_groups` and `selected_collections`
+2. ✅ Modified `/configure` endpoint to return selected groups/collections
+3. ✅ Modified `/status` endpoint to return selected groups/collections
+4. ✅ Added json import
 
-### Issues Fixed
-- ✅ Fixed TailwindCSS v4 PostCSS error by downgrading to v3
-- ✅ Fixed Docker Compose pgvector image (ankane/pgvector:14 → pgvector/pgvector:pg14)
-- ✅ Removed deprecated 'version' attribute from docker-compose.yml
-- ✅ Fixed frontend Docker: upgraded to Node.js 20 for Vite compatibility
-- ✅ Fixed backend Docker: corrected dependency installation process
-- ✅ Downgraded Vite from v7 to v5 for better stability
-- ✅ Fixed Docker volume mounts to prevent node_modules conflicts
-- ✅ Added .dockerignore files to optimize build context
+### Backend Changes (app/services/zotero_service.py)
+1. ✅ Added comment to clarify that library_id already contains the prefix
 
-### Testing Summary
-- ✅ Backend runs successfully on port 8000
-- ✅ Health endpoints working (/api/health/, /api/health/ready, /api/health/live)
-- ✅ Frontend runs successfully on port 3000
-- ✅ TailwindCSS styling working correctly
+### Frontend Changes (src/services/zoteroService.ts)
+1. ✅ Updated `ZoteroStatus` interface to include `selectedGroups` and `selectedCollections`
+2. ✅ Updated `mapStatus` method to map the new fields
 
-## Phase I Implementation Progress
+### Frontend Changes (src/pages/ZoteroSettings.tsx)
+1. ✅ Updated `loadStatus` to set selected groups/collections from the status response
 
-### ✅ Completed Tasks
-
-#### 1. Database Schema & Models (Issue #2) - COMPLETED
-- ✓ Created all SQLAlchemy models with proper type annotations
-- ✓ Implemented pgvector support for embeddings
-- ✓ Set up Alembic for async migrations
-- ✓ Successfully migrated database with all tables
-- ✓ Verified database health check in API
-
-## Phase I Implementation Plan
-
-### 1. Database Schema & Models (Issue #2) - HIGH PRIORITY
-- User model with authentication fields
-- Document model for storing user papers
-- Paper model with pgvector field for embeddings
-- Citation model for document-paper relationships
-- Library model for user paper collections
-- Set up Alembic for migrations
-
-### 2. Core Editor Implementation (Issue #3) - HIGH PRIORITY
-- Integrate Lexical editor in React frontend
-- Create document creation/editing UI
-- Implement auto-save functionality
-- Build document CRUD API endpoints
-
-### 3. Real-time Citation Engine (Issue #4) - HIGH PRIORITY
-- Set up WebSocket connection (Socket.io)
-- Implement text embedding with sentence-transformers
-- Create vector similarity search with pgvector
-- Build confidence scoring system
-
-### 4. Document Management System (Issue #5) - MEDIUM PRIORITY
-- Document list UI with search/filter
-- Document sharing and permissions
-- Export functionality
-
-### 5. Paper Upload & Vectorization (Issue #6) - HIGH PRIORITY
-- Drag-and-drop file upload UI
-- PDF text extraction with PyPDF2
-- Text chunking system
-- Vectorization pipeline
-- Duplicate detection
-
-### Implementation Order:
-1. ✅ Database models (foundation for everything) - DONE
-2. ⏳ Document CRUD (basic functionality) - NEXT
-3. Paper upload (populate the system)
-4. Citation engine (core feature)
-5. Editor integration (user interface)
-6. Management features (enhancements)
-
-### Current Status
-- Backend runs successfully with health checks
-- Frontend runs with TailwindCSS styling
-- Docker Compose working for all services
-- Database schema fully implemented and migrated
-
-## 2025-07-14: Real-time Citation Engine Implementation (Issue #4)
-
-### Completed Tasks
-- ✅ Created WebSocket server infrastructure (`/ws/citations` endpoint)
-- ✅ Implemented text analysis service for extracting context
-- ✅ Created embedding service with sentence-transformers
-- ✅ Implemented vector search service for pgvector queries
-- ✅ Built ranking and confidence scoring algorithm
-- ✅ Created WebSocket client for frontend
-- ✅ Integrated citation suggestions with Lexical editor
-- ✅ Updated CitationPanel to display real-time suggestions
-
-### Backend Components Added
-1. **WebSocket Handler** (`app/api/websocket.py`):
-   - Real-time citation endpoint with rate limiting
-   - Connection management for multiple users
-   - Message handling for suggestion requests
-
-2. **Text Analysis Service** (`app/services/text_analysis.py`):
-   - Context extraction from editor content
-   - Sentence tokenization using NLTK
-   - Text preprocessing and change detection
-
-3. **Embedding Service** (`app/services/embedding.py`):
-   - Text embedding generation using sentence-transformers
-   - In-memory LRU caching for performance
-   - Async batch processing support
-
-4. **Vector Search Service** (`app/services/vector_search.py`):
-   - pgvector similarity search implementation
-   - Multi-index search support (local + future external APIs)
-   - Batch search capabilities
-
-5. **Citation Engine** (`app/services/citation_engine.py`):
-   - Main orchestration service
-   - Confidence scoring algorithm
-   - Ranking based on multiple factors:
-     - Cosine similarity (40%)
-     - Contextual relevance (25%)
-     - Paper quality metrics (15%)
-     - Recency bias (10%)
-     - User preferences (10%)
-
-### Frontend Components Added
-1. **WebSocket Service** (`src/services/websocketService.ts`):
-   - Auto-reconnection with exponential backoff
-   - Message queuing for offline handling
-   - Connection status monitoring
-
-2. **Citation Suggestion Plugin** (`src/components/Editor/plugins/CitationSuggestionPlugin.tsx`):
-   - Lexical plugin for real-time suggestions
-   - Debounced text analysis (500ms)
-   - Context extraction from editor state
-
-3. **Updated Components**:
-   - Editor component now supports citation callbacks
-   - CitationPanel displays real-time suggestions with confidence levels
-   - Connection status indicator in UI
-
-### Testing the Implementation
-1. Start the backend with updated dependencies:
-   ```bash
-   cd backend
-   uv sync
-   python run.py
-   ```
-
-2. The WebSocket endpoint is available at:
-   - `ws://localhost:8000/ws/citations?user_id=<user_id>`
-
-3. Frontend automatically connects when editor is loaded
-
-### Known Limitations
-- Redis caching not fully implemented yet
-- External API integrations (Semantic Scholar, PubMed) pending
-- Need to implement paper upload functionality first
-
-## Testing the Full System (Citation Suggestions)
-
-### Prerequisites
-1. **Populate test data** (one-time setup):
-   ```bash
-   cd backend
-   python scripts/populate_test_papers_v2.py
-   ```
-   This adds 10 academic papers with embeddings to the database.
-
-2. **Start the backend**:
-   ```bash
-   cd backend
-   python run.py
-   # Backend runs on http://localhost:8000
-   ```
-
-3. **Start the frontend** (in another terminal):
-   ```bash
-   cd frontend
-   npm run dev
-   # Frontend runs on http://localhost:3000
-   ```
-
-### Testing Citation Suggestions
-1. Open http://localhost:3000 in your browser
-2. Create a new document or open an existing one
-3. Check the browser console (F12) for WebSocket connection logs
-4. Start typing about:
-   - "transformer architectures"
-   - "BERT language model"
-   - "deep learning for NLP"
-   - "attention mechanisms"
-5. After typing ~10+ characters and pausing for 500ms, you should see:
-   - Connection status indicator (green = connected)
-   - Citation suggestions appearing in the right panel
-   - Suggestions ranked by confidence (High/Medium/Low)
-
-### Debugging Tips
-- Check browser console for:
-  - `[WebSocket] Connecting to: ws://localhost:8000/ws/citations?user_id=test-user`
-  - `[CitationPlugin] WebSocket connected`
-  - `[CitationPlugin] Requesting suggestions for: <your text>`
-  - `[CitationPlugin] Received suggestions: <count>`
-- Check backend logs for WebSocket connections and embedding generation
-- Ensure both backend and frontend are running
-- Make sure test data is populated (check with `python scripts/test_full_system.py`)
-
-## Import Error Fixes (2025-07-14)
-
-### Fixed EditorState Import Errors
-The user reported: "SyntaxError: Importing binding name 'EditorState' is not found."
-
-Fixed in two files:
-1. **frontend/src/services/websocketService.ts** (line 5)
-   - Changed: `import { EditorState } from 'lexical';`
-   - To: `import type { EditorState } from 'lexical';`
-
-2. **frontend/src/components/Editor/plugins/CitationSuggestionPlugin.tsx** (line 8)
-   - Already fixed to: `import type { EditorState } from 'lexical';`
-
-The issue was that EditorState is a TypeScript type, not a runtime value, so it needs to be imported as a type import.
-
-3. **frontend/src/components/Editor/Editor.tsx** (line 23)
-   - Changed: `import CitationSuggestionPlugin from './plugins/CitationSuggestionPlugin';`
-   - To: `import { CitationSuggestionPlugin } from './plugins/CitationSuggestionPlugin';`
-
-## Docker Environment Testing (2025-07-14)
-
-### Rebuilding Docker Environment
-To rebuild and test the Docker environment after code changes:
-
-```bash
-# Stop and rebuild everything
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-
-# Run migrations (if needed)
-docker-compose exec backend alembic upgrade head
-
-# Populate test data (if needed)
-docker-compose exec backend python scripts/populate_test_papers_v2.py
-```
-
-### Access Points
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
-- Health Check: http://localhost:8000/api/health/
-
-### Testing Citation Suggestions with Docker
-1. Ensure all services are running: `docker-compose ps`
-2. Open http://localhost:3000 in your browser
-3. Create a new document or open an existing one
-4. Start typing about machine learning topics:
-   - "transformer architectures"
-   - "BERT language model"
-   - "attention mechanisms"
-   - "deep learning for NLP"
-5. After typing ~10+ characters and pausing for 500ms, you should see:
-   - WebSocket connection status (green = connected)
-   - Citation suggestions in the right panel
-   - Suggestions ranked by confidence
-
-### Troubleshooting Docker
-- Check logs: `docker-compose logs -f [service]`
-- Restart specific service: `docker-compose restart [service]`
-- Full reset: `docker-compose down -v` (removes volumes/data)
-
-## 2025-07-14: Paper Upload Implementation (Issue #6)
-
-### Completed Features
-- ✅ Created FileUpload component with drag-and-drop
-- ✅ File validation (PDF/DOCX/TXT/RTF, max 50MB)
-- ✅ Backend upload endpoint with multipart/form-data
-- ✅ Integrated MarkItDown for text extraction with OCR
-- ✅ Paper processing service with metadata extraction
-- ✅ Text chunking (500 words with 50-word overlap)
-- ✅ Duplicate detection via SHA-256 file hash
-- ✅ Paper Library UI with search/filter/sort
-- ✅ Background processing with status tracking
-
-### Technical Implementation
-1. **Frontend Components**:
-   - `FileUpload.tsx`: Drag-and-drop with react-dropzone
-   - `PaperLibrary.tsx`: Library management interface
-   - `paperService.ts`: API communication service
-
-2. **Backend Services**:
-   - `app/api/papers.py`: Upload and management endpoints
-   - `app/services/paper_processor.py`: MarkItDown integration
-   - `app/schemas/paper.py`: Request/response schemas
-
-3. **Key Features**:
-   - Uses Microsoft MarkItDown for superior text extraction
-   - Supports OCR for scanned PDFs automatically
-   - Extracts metadata from document structure
-   - Generates embeddings for similarity search
-   - Async processing with error handling
-
-### Testing Paper Upload
-1. Navigate to http://localhost:3000/documents
-2. Click "📚 Paper Library"
-3. Click "+ Upload Papers"
-4. Drag and drop PDF/DOCX files
-5. Monitor processing status
-6. Uploaded papers will be searchable for citations
+## Next Steps
+1. Test the sync functionality with the COAI group
+2. Verify that the frontend properly shows selected groups when reloading the page
+3. Check that sync fetches papers from the selected group

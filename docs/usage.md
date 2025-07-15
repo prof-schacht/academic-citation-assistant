@@ -2,6 +2,16 @@
 
 ## Recent Updates (July 14, 2025)
 
+### Zotero Integration
+- **Automatic Paper Sync** - Connect your Zotero library for automatic imports
+  - Configure with API key and User ID
+  - Sync papers with full metadata (title, authors, year, journal)
+  - Download PDFs automatically
+  - Configurable sync intervals (default: 30 minutes)
+  - Track sync status and handle updates
+
+## Previous Updates
+
 ### New Features:
 1. **Chunk-Based Search** - Papers are split into 250-word chunks with individual embeddings
    - Searches entire paper content, not just abstracts

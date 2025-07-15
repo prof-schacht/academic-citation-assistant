@@ -319,12 +319,37 @@ class ZoteroService:
                     existing_sync.zotero_version = zotero_version
                     existing_sync.last_synced = datetime.utcnow()
                     
+                    await self.db.flush()  # Save changes
                     updated_papers += 1
                 else:
-                    # Create new paper
-                    paper = Paper(**metadata)
-                    self.db.add(paper)
-                    await self.db.flush()  # Get paper ID
+                    # Check if paper with same DOI already exists
+                    existing_paper = None
+                    if metadata.get("doi"):
+                        result = await self.db.execute(
+                            select(Paper).where(Paper.doi == metadata["doi"])
+                        )
+                        existing_paper = result.scalar_one_or_none()
+                    
+                    if existing_paper:
+                        # Use existing paper and create sync record
+                        paper = existing_paper
+                        logger.info(f"Found existing paper with DOI {metadata['doi']}, linking to Zotero item {zotero_key}")
+                        
+                        # Update paper metadata if needed
+                        for key, value in metadata.items():
+                            if hasattr(paper, key) and value:
+                                current_value = getattr(paper, key)
+                                # Only update if current value is None or empty
+                                if not current_value:
+                                    setattr(paper, key, value)
+                        
+                        await self.db.flush()
+                    else:
+                        # Create new paper
+                        paper = Paper(**metadata)
+                        self.db.add(paper)
+                        await self.db.flush()  # Get paper ID
+                        new_papers += 1
                     
                     # Create sync record
                     sync_record = ZoteroSync(
@@ -334,11 +359,10 @@ class ZoteroService:
                         user_id=self.user_id
                     )
                     self.db.add(sync_record)
-                    
-                    new_papers += 1
+                    await self.db.flush()
                 
-                # Download and process PDF if it's a new paper
-                if not existing_sync:
+                # Download and process PDF if it's a new paper or newly linked
+                if not existing_sync and not paper.file_path:
                     file_path = await self._download_attachment(
                         zotero_key,
                         f"{paper.id}.pdf"
@@ -354,17 +378,24 @@ class ZoteroService:
                             str(paper.id),
                             file_path
                         )
+                        await self.db.flush()
+                
+                # Commit this item's changes
+                await self.db.commit()
                 
             except Exception as e:
                 logger.error(f"Failed to sync Zotero item {item.get('key')}: {e}")
                 failed_papers += 1
+                
+                # Rollback any changes for this item
+                await self.db.rollback()
+                continue
         
         # Update last sync time
         if self._config:
             self._config.last_sync = datetime.utcnow()
             self._config.last_sync_status = f"Synced: {new_papers} new, {updated_papers} updated, {failed_papers} failed"
-        
-        await self.db.commit()
+            await self.db.commit()
         
         logger.info(f"Zotero sync complete: {new_papers} new, {updated_papers} updated, {failed_papers} failed")
         return new_papers, updated_papers, failed_papers

@@ -9,6 +9,14 @@
   - Sync only the papers you need
   - Visual UI for easy selection with checkboxes
 
+### Duplicate DOI Handling - Fixed
+- **Smart Duplicate Detection** - Prevents duplicate papers with same DOI
+  - Checks for existing papers by DOI before creating new ones
+  - Links Zotero items to existing papers when DOI matches
+  - Updates metadata only when existing values are empty
+  - Proper transaction handling with rollback on errors
+  - Continues syncing other papers even if some fail
+
 ## Previous Updates (July 14, 2025)
 
 ### Zotero Integration

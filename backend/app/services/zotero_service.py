@@ -30,6 +30,14 @@ class ZoteroService:
         self.user_id = user_id
         self._config: Optional[ZoteroConfig] = None
         self._session: Optional[aiohttp.ClientSession] = None
+        self._sync_progress: Dict[str, Any] = {
+            "status": "idle",
+            "current": 0,
+            "total": 0,
+            "message": "",
+            "libraries_processed": 0,
+            "libraries_total": 0
+        }
     
     async def __aenter__(self):
         """Async context manager entry."""
@@ -66,6 +74,14 @@ class ZoteroService:
             logger.error(f"Zotero connection test failed: {e}")
             return False
     
+    def get_sync_progress(self) -> Dict[str, Any]:
+        """Get current sync progress."""
+        return self._sync_progress.copy()
+    
+    def _update_sync_progress(self, **kwargs) -> None:
+        """Update sync progress."""
+        self._sync_progress.update(kwargs)
+    
     async def fetch_library_items(self, modified_since: Optional[datetime] = None) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         """
         Fetch all items from Zotero library, including papers and their PDF attachments.
@@ -83,6 +99,7 @@ class ZoteroService:
         import json
         selected_groups = []
         selected_collections = []
+        selected_collections_by_library = {}  # Map library_id -> [collection_keys]
         
         if self._config.selected_groups:
             try:
@@ -92,23 +109,74 @@ class ZoteroService:
                 
         if self._config.selected_collections:
             try:
-                selected_collections = json.loads(self._config.selected_collections)
+                collections_data = json.loads(self._config.selected_collections)
+                # Handle both old format (list of keys) and new format (list of {key, libraryId})
+                for collection in collections_data:
+                    if isinstance(collection, dict) and 'key' in collection and 'libraryId' in collection:
+                        # New format with library ID
+                        lib_id = collection['libraryId']
+                        key = collection['key']
+                        if lib_id not in selected_collections_by_library:
+                            selected_collections_by_library[lib_id] = []
+                        selected_collections_by_library[lib_id].append(key)
+                        selected_collections.append(key)  # Keep for backward compatibility
+                    else:
+                        # Old format - just collection key
+                        selected_collections.append(collection)
             except:
                 selected_collections = []
         
-        # If no groups/collections selected, fetch from user's personal library
-        if not selected_groups and not selected_collections:
-            selected_groups = [f"users/{self._config.zotero_user_id}"]
+        # Determine which libraries to fetch from
+        libraries_to_fetch = set(selected_groups)
         
-        # Fetch items from each selected library/group
-        for library_id in selected_groups:
-            papers, attachments = await self._fetch_items_from_library(library_id, modified_since, selected_collections)
+        # Add libraries that contain selected collections
+        libraries_to_fetch.update(selected_collections_by_library.keys())
+        
+        # If no groups/collections selected, fetch from user's personal library
+        if not libraries_to_fetch and not selected_collections:
+            libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
+        
+        # If we have old-format collections but no libraries, we need to fetch from all libraries
+        # to find where these collections belong (backward compatibility)
+        if selected_collections and not libraries_to_fetch:
+            # Add user's personal library
+            libraries_to_fetch.add(f"users/{self._config.zotero_user_id}")
+            # We should ideally fetch groups too, but that would require an additional API call
+            # For now, we'll just check the personal library
+            logger.warning("Collections selected without library information - checking personal library only")
+        
+        # Update progress
+        self._update_sync_progress(
+            status="fetching",
+            libraries_total=len(libraries_to_fetch),
+            libraries_processed=0,
+            message="Starting to fetch items from Zotero..."
+        )
+        
+        # Fetch items from each library
+        library_count = 0
+        for library_id in libraries_to_fetch:
+            # Determine which collections to filter for this library
+            library_collections = selected_collections_by_library.get(library_id, selected_collections)
+            
+            papers, attachments = await self._fetch_items_from_library(
+                library_id, 
+                modified_since, 
+                library_collections if library_collections else None
+            )
             all_papers.extend(papers)
             # Merge attachments dictionaries
             for key, value in attachments.items():
                 if key not in all_attachments:
                     all_attachments[key] = []
                 all_attachments[key].extend(value)
+            
+            # Update progress
+            library_count += 1
+            self._update_sync_progress(
+                libraries_processed=library_count,
+                message=f"Fetched items from {library_count}/{len(libraries_to_fetch)} libraries"
+            )
         
         logger.info(f"Fetched {len(all_papers)} papers and {sum(len(atts) for atts in all_attachments.values())} PDF attachments from Zotero")
         return all_papers, all_attachments
@@ -303,11 +371,29 @@ class ZoteroService:
         updated_papers = 0
         failed_papers = 0
         
+        # Initialize progress
+        self._update_sync_progress(
+            status="starting",
+            current=0,
+            total=0,
+            message="Preparing to sync with Zotero...",
+            libraries_processed=0,
+            libraries_total=0
+        )
+        
         # Get last sync time
         last_sync = self._config.last_sync if self._config else None
         
         # Fetch items from Zotero (papers and attachments)
         papers, attachments_by_parent = await self.fetch_library_items(modified_since=last_sync)
+        
+        # Update progress
+        self._update_sync_progress(
+            status="processing",
+            current=0,
+            total=len(papers),
+            message=f"Processing {len(papers)} papers..."
+        )
         
         # Determine library_id for PDF downloads
         # Use the first selected group or user's personal library
@@ -321,6 +407,7 @@ class ZoteroService:
         
         library_id = selected_groups[0] if selected_groups else f"users/{self._config.zotero_user_id}"
         
+        paper_count = 0
         for item in papers:
             try:
                 # Check if we already have this paper
@@ -436,12 +523,26 @@ class ZoteroService:
                 # Rollback any changes for this item
                 await self.db.rollback()
                 continue
+            
+            # Update progress
+            paper_count += 1
+            self._update_sync_progress(
+                current=paper_count,
+                message=f"Processed {paper_count}/{len(papers)} papers ({new_papers} new, {updated_papers} updated, {failed_papers} failed)"
+            )
         
-        # Update last sync time
+        # Update last sync time and final progress
         if self._config:
             self._config.last_sync = datetime.utcnow()
             self._config.last_sync_status = f"Synced: {new_papers} new, {updated_papers} updated, {failed_papers} failed"
             await self.db.commit()
+        
+        # Update final progress
+        self._update_sync_progress(
+            status="completed",
+            current=len(papers),
+            message=f"Sync complete: {new_papers} new, {updated_papers} updated, {failed_papers} failed"
+        )
         
         logger.info(f"Zotero sync complete: {new_papers} new, {updated_papers} updated, {failed_papers} failed")
         logger.info(f"Total attachments available: {sum(len(atts) for atts in attachments_by_parent.values())}")

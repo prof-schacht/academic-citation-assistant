@@ -1,117 +1,81 @@
-# Development Scratchpad
+# Zotero Sync Fix - Development Log
 
-## 2025-07-15: Updated Zotero Sync to Include PDF Attachments
+## Issue Description
+When a user selects only collections (no groups) in Zotero sync, the system doesn't know which library to fetch from. Collections exist within specific libraries (either user library or groups), but the current implementation doesn't track this relationship.
 
-### Problem
-The Zotero sync was excluding attachments, which meant PDFs were not being downloaded. Without PDFs, we cannot build chunks for embedding search. The user correctly identified that we need to sync PDFs to enable the core citation recommendation feature.
+## Timeline
 
-### Solution
-Updated the Zotero sync logic to:
+### 2025-07-15 - Initial Analysis
+- Identified the bug in `zotero_service.py` line 100-101: when no groups AND no collections are selected, it fetches from personal library
+- The issue is that when ONLY collections are selected, nothing happens because the system doesn't know which library contains those collections
+- Collections need to be stored with their library ID to enable proper fetching
 
-1. **Fetch both papers AND their PDF attachments** in `_fetch_items_from_library`:
-   - Changed return type to `Tuple[List[Dict], Dict[str, List[Dict]]]`
-   - Returns papers and a dictionary mapping parent keys to their PDF attachments
-   - Filters for PDF attachments specifically (contentType = "application/pdf")
+## Solution Plan
+1. Update the collection data model to include library ID
+2. Modify `fetch_collections` to return collections with their library ID
+3. Update sync logic to determine libraries from selected collections
+4. Add progress tracking for sync operations
+5. Test the implementation
 
-2. **Updated `fetch_library_items`** to handle the new return format:
-   - Aggregates papers and attachments from all selected libraries
-   - Merges attachment dictionaries properly
+## Next Steps
+- [x] Update collection fetching to include library ID
+- [x] Fix sync logic for collection-only selection
+- [x] Add progress indicator
+- [x] Test with real Zotero data
 
-3. **Improved PDF download logic** in `sync_library`:
-   - Renamed `_download_attachment` to `_download_pdf_attachment` for clarity
-   - Downloads PDFs using the attachment data fetched earlier
-   - No need for separate API calls to get attachments
+### 2025-07-15 - Implementation Complete
+1. **Updated ZoteroService**: Modified `fetch_library_items` method to:
+   - Support new collection format with library IDs: `[{key: "COLLECTION_KEY", libraryId: "users/12345"}]`
+   - Maintain backward compatibility with old format: `["COLLECTION_KEY"]`
+   - Properly determine which libraries to fetch from when collections are selected
+   - Handle the case where only collections are selected (no groups)
 
-4. **Better logging**:
-   - Reports number of papers AND PDF attachments fetched
-   - Shows how many papers have PDF attachments available
+2. **Added Progress Tracking**: 
+   - Added `_sync_progress` state to track sync operations
+   - Added `get_sync_progress()` and `_update_sync_progress()` methods
+   - Updated `fetch_library_items` and `sync_library` to report progress
+   - Added `/sync/progress` API endpoint
 
-### Files Modified
-- `/backend/app/services/zotero_service.py` - Updated sync methods
-- `/backend/test_zotero_sync.py` - Updated test to handle new return format
-- `/backend/test_zotero_sync_with_pdfs.py` - New comprehensive test script
+3. **Fixed Collection Sync Logic**:
+   - Collections now properly map to their parent libraries
+   - When only collections are selected, system fetches from the correct libraries
+   - Backward compatibility maintained for existing collection configurations
 
-### How to Test
-1. Run the updated test script:
-   ```bash
-   cd backend
-   python test_zotero_sync_with_pdfs.py
-   ```
+4. **Added Test Coverage**:
+   - Created comprehensive test in `tests/test_zotero_collection_sync.py`
+   - Tests new collection format parsing
+   - Tests backward compatibility
+   - Tests progress tracking
+   - All tests pass successfully
 
-2. The script will show:
-   - Current papers and PDFs in the database
-   - Number of papers and PDF attachments fetched
-   - Sync results including newly downloaded PDFs
-   - Example of newly added papers with PDF status
+## Implementation Details
 
-### Benefits
-- Enables PDF processing for chunk creation and embeddings
-- More efficient sync - fetches all data in one pass
-- Better visibility into what's being synced
-- Foundation for the citation recommendation engine
-
-## 2025-07-15: Fixed Zotero Sync Duplicate DOI Issue
-
-### Problem
-The Zotero sync was failing with the error:
+### New Collection Format
+```json
+[
+  {"key": "CPUVP4AQ", "libraryId": "users/12345"},
+  {"key": "ABCD1234", "libraryId": "groups/67890"}
+]
 ```
-duplicate key value violates unique constraint 'ix_papers_doi'
+
+### Progress Tracking Structure
+```json
+{
+  "status": "idle|starting|fetching|processing|completed",
+  "current": 0,
+  "total": 100,
+  "message": "Status message",
+  "libraries_processed": 0,
+  "libraries_total": 0
+}
 ```
 
-This occurred because the Paper model has a unique constraint on the DOI field, and the sync was trying to insert papers with DOIs that already existed in the database.
+### API Endpoints
+- `GET /zotero/sync/progress` - Get current sync progress
+- Existing endpoints remain unchanged
 
-### Solution
-Updated the `sync_library` method in `zotero_service.py` to:
-
-1. **Check for existing papers by DOI** before creating new ones:
-   ```python
-   # Check if paper with same DOI already exists
-   existing_paper = None
-   if metadata.get("doi"):
-       result = await self.db.execute(
-           select(Paper).where(Paper.doi == metadata["doi"])
-       )
-       existing_paper = result.scalar_one_or_none()
-   ```
-
-2. **Link Zotero items to existing papers** when DOI matches:
-   - Uses the existing paper instead of creating a duplicate
-   - Creates a ZoteroSync record to link the Zotero item to the existing paper
-   - Updates empty metadata fields on the existing paper
-
-3. **Proper transaction handling**:
-   - Each item is committed individually
-   - Rollback on errors to prevent partial updates
-   - Continue processing other items even if one fails
-
-4. **Fixed PDF download logic**:
-   - Changed condition from `if not existing_sync and new_papers > 0` to `if not existing_sync and not paper.file_path`
-   - This ensures PDFs are downloaded for newly linked papers that don't already have files
-
-### Files Modified
-- `/backend/app/services/zotero_service.py` - Updated `sync_library` method
-- `/docs/usage.md` - Added documentation about duplicate DOI handling
-
-### Test Script Created
-- `/backend/test_zotero_duplicate_doi.py` - Test script to verify the fix
-
-### How to Test
-1. Run the test script:
-   ```bash
-   cd backend
-   python test_zotero_duplicate_doi.py
-   ```
-
-2. The script will:
-   - Show current papers with DOIs
-   - Run a Zotero sync
-   - Report new, updated, and failed papers
-   - Check for any duplicate DOIs after sync
-
-3. Expected result: No duplicate DOIs should be found after sync
-
-### Benefits
-- Prevents database constraint violations
-- Allows multiple Zotero items to reference the same paper (by DOI)
-- Maintains data integrity
-- Provides better error handling and recovery
+## Testing Status
+✅ Unit tests pass
+✅ Collection parsing works correctly
+✅ Backward compatibility maintained
+✅ Progress tracking functional

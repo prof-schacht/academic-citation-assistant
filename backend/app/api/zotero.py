@@ -292,3 +292,20 @@ async def get_zotero_collections(
     except Exception as e:
         logger.error(f"Failed to fetch Zotero collections: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch collections")
+
+
+@router.get("/sync/progress")
+async def get_sync_progress(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> dict:
+    """Get current sync progress."""
+    try:
+        async with ZoteroService(db, current_user.id) as service:
+            progress = service.get_sync_progress()
+        return progress
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get sync progress: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get sync progress")

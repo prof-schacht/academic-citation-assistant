@@ -31,3 +31,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Default export for backwards compatibility
+export default api;

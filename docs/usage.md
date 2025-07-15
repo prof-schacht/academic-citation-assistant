@@ -11,9 +11,11 @@
   - **File Not Found Tracking**: Specific logging for missing PDF files
   
 - **Frontend Log Viewer** - User-friendly interface for viewing logs
-  - **Access**: Click "View Logs" in Paper Library header
+  - **Access**: 
+    - Click "View Logs" in Paper Library header
+    - Direct URL: http://localhost:3000/logs
   - **Features**:
-    - Real-time log display with auto-refresh option
+    - Real-time log display with auto-refresh option (10 second interval)
     - Color-coded log levels for quick visual scanning
     - Search across all log messages
     - Filter by level, category, or date range

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import logService, { LogEntry, LogFilters, LogsResponse } from '../services/logService';
+import logService from '../services/logService';
+import type { LogEntry, LogFilters, LogsResponse } from '../services/logService';
 import { debounce } from '../utils/debounce';
 
 interface LogViewerProps {
@@ -20,7 +21,7 @@ const LogViewer: React.FC<LogViewerProps> = ({
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState<string[]>([]);
-  const [filters, setFilters] = useState<LogFilters>({ userId });
+  const [filters, setFilters] = useState<LogFilters>({ user_id: userId });
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(autoRefresh);
 

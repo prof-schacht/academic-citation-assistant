@@ -66,17 +66,18 @@ class ZoteroService:
             logger.error(f"Zotero connection test failed: {e}")
             return False
     
-    async def fetch_library_items(self, modified_since: Optional[datetime] = None) -> List[Dict[str, Any]]:
+    async def fetch_library_items(self, modified_since: Optional[datetime] = None) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         """
-        Fetch all items from Zotero library.
+        Fetch all items from Zotero library, including papers and their PDF attachments.
         
         Args:
             modified_since: Only fetch items modified after this date
             
         Returns:
-            List of Zotero items
+            Tuple of (papers, attachments_by_parent)
         """
-        items = []
+        all_papers = []
+        all_attachments = {}
         
         # Parse selected groups and collections
         import json
@@ -101,19 +102,25 @@ class ZoteroService:
         
         # Fetch items from each selected library/group
         for library_id in selected_groups:
-            items.extend(await self._fetch_items_from_library(library_id, modified_since, selected_collections))
+            papers, attachments = await self._fetch_items_from_library(library_id, modified_since, selected_collections)
+            all_papers.extend(papers)
+            # Merge attachments dictionaries
+            for key, value in attachments.items():
+                if key not in all_attachments:
+                    all_attachments[key] = []
+                all_attachments[key].extend(value)
         
-        logger.info(f"Fetched {len(items)} items from Zotero")
-        return items
+        logger.info(f"Fetched {len(all_papers)} papers and {sum(len(atts) for atts in all_attachments.values())} PDF attachments from Zotero")
+        return all_papers, all_attachments
     
     async def _fetch_items_from_library(
         self, 
         library_id: str, 
         modified_since: Optional[datetime] = None,
         filter_collections: List[str] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         """
-        Fetch items from a specific library.
+        Fetch items from a specific library, including both papers and their PDF attachments.
         
         Args:
             library_id: Library ID (e.g., "users/12345" or "groups/67890")
@@ -121,16 +128,19 @@ class ZoteroService:
             filter_collections: If provided, only fetch items from these collections
             
         Returns:
-            List of Zotero items
+            Tuple of (papers, attachments_by_parent)
+                - papers: List of paper items
+                - attachments_by_parent: Dict mapping parent item keys to their PDF attachments
         """
-        items = []
+        papers = []
+        attachments_by_parent = {}
         start = 0
         
         # Build base URL - library_id already contains the prefix (e.g., "groups/4965330")
         base_url = f"{self.BASE_URL}/{library_id}/items"
         params = {
             "limit": self.ITEMS_PER_PAGE,
-            "itemType": "journalArticle || book || bookSection || conferencePaper || report || thesis"
+            # Don't filter by itemType here - we'll process all items
         }
         
         # Add modification date filter if provided
@@ -149,16 +159,32 @@ class ZoteroService:
                 if not batch:
                     break
                 
-                # Filter by collections if specified
-                if filter_collections:
-                    filtered_batch = []
-                    for item in batch:
+                # Process items - separate papers from PDF attachments
+                for item in batch:
+                    item_type = item.get("data", {}).get("itemType", "")
+                    
+                    # Handle PDF attachments
+                    if item_type == "attachment":
+                        data = item.get("data", {})
+                        if data.get("contentType") == "application/pdf" and data.get("parentItem"):
+                            parent_key = data["parentItem"]
+                            if parent_key not in attachments_by_parent:
+                                attachments_by_parent[parent_key] = []
+                            attachments_by_parent[parent_key].append(item)
+                        continue
+                    
+                    # Skip notes
+                    if item_type == "note":
+                        continue
+                    
+                    # If collections filter is specified, check collections
+                    if filter_collections:
                         item_collections = item.get("data", {}).get("collections", [])
-                        if any(col in filter_collections for col in item_collections):
-                            filtered_batch.append(item)
-                    batch = filtered_batch
-                
-                items.extend(batch)
+                        if not any(col in filter_collections for col in item_collections):
+                            continue
+                    
+                    # This is a paper item
+                    papers.append(item)
                 
                 # Check if there are more items
                 total_results = int(response.headers.get("Total-Results", "0"))
@@ -170,7 +196,8 @@ class ZoteroService:
                 # Small delay to respect rate limits
                 await asyncio.sleep(0.1)
         
-        return items
+        logger.info(f"Fetched {len(papers)} papers and {sum(len(atts) for atts in attachments_by_parent.values())} PDF attachments from {library_id}")
+        return papers, attachments_by_parent
     
     def _extract_paper_metadata(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """Extract paper metadata from Zotero item."""
@@ -224,55 +251,46 @@ class ZoteroService:
         
         return None
     
-    async def _download_attachment(self, item_key: str, filename: str) -> Optional[str]:
+    async def _download_pdf_attachment(self, attachment_item: Dict[str, Any], library_id: str, filename: str) -> Optional[str]:
         """
-        Download PDF attachment for a Zotero item.
+        Download PDF attachment from Zotero.
         
+        Args:
+            attachment_item: The attachment item data from Zotero
+            library_id: Library ID (e.g., "users/12345" or "groups/67890")
+            filename: Filename to save the PDF as
+            
         Returns:
             Path to downloaded file or None if failed
         """
-        # First, get the attachment items
-        attachments_url = f"{self.BASE_URL}/users/{self._config.zotero_user_id}/items/{item_key}/children"
-        
-        async with self._session.get(attachments_url) as response:
-            if response.status != 200:
-                logger.warning(f"No attachments found for item {item_key}")
-                return None
-            
-            children = await response.json()
-        
-        # Find PDF attachments
-        pdf_key = None
-        for child in children:
-            child_data = child.get("data", {})
-            if (child_data.get("itemType") == "attachment" and 
-                child_data.get("contentType") == "application/pdf"):
-                pdf_key = child.get("key")
-                break
-        
-        if not pdf_key:
-            logger.warning(f"No PDF attachment found for item {item_key}")
+        attachment_key = attachment_item.get("key")
+        if not attachment_key:
+            logger.warning("No key found for attachment item")
             return None
         
         # Download the PDF
-        file_url = f"{self.BASE_URL}/users/{self._config.zotero_user_id}/items/{pdf_key}/file"
+        file_url = f"{self.BASE_URL}/{library_id}/items/{attachment_key}/file"
         
-        async with self._session.get(file_url) as response:
-            if response.status != 200:
-                logger.error(f"Failed to download PDF for item {item_key}: {response.status}")
-                return None
-            
-            # Create temporary file
-            temp_dir = tempfile.mkdtemp()
-            file_path = os.path.join(temp_dir, filename)
-            
-            # Save PDF
-            content = await response.read()
-            with open(file_path, "wb") as f:
-                f.write(content)
-            
-            logger.info(f"Downloaded PDF for item {item_key} to {file_path}")
-            return file_path
+        try:
+            async with self._session.get(file_url) as response:
+                if response.status != 200:
+                    logger.error(f"Failed to download PDF for attachment {attachment_key}: {response.status}")
+                    return None
+                
+                # Create temporary file
+                temp_dir = tempfile.mkdtemp()
+                file_path = os.path.join(temp_dir, filename)
+                
+                # Save PDF
+                content = await response.read()
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                
+                logger.info(f"Downloaded PDF attachment {attachment_key} to {file_path}")
+                return file_path
+        except Exception as e:
+            logger.error(f"Error downloading PDF attachment {attachment_key}: {e}")
+            return None
     
     async def sync_library(self) -> Tuple[int, int, int]:
         """
@@ -288,10 +306,22 @@ class ZoteroService:
         # Get last sync time
         last_sync = self._config.last_sync if self._config else None
         
-        # Fetch items from Zotero
-        items = await self.fetch_library_items(modified_since=last_sync)
+        # Fetch items from Zotero (papers and attachments)
+        papers, attachments_by_parent = await self.fetch_library_items(modified_since=last_sync)
         
-        for item in items:
+        # Determine library_id for PDF downloads
+        # Use the first selected group or user's personal library
+        import json
+        selected_groups = []
+        if self._config.selected_groups:
+            try:
+                selected_groups = json.loads(self._config.selected_groups)
+            except:
+                selected_groups = []
+        
+        library_id = selected_groups[0] if selected_groups else f"users/{self._config.zotero_user_id}"
+        
+        for item in papers:
             try:
                 # Check if we already have this paper
                 zotero_key = item.get("key")
@@ -368,22 +398,33 @@ class ZoteroService:
                 
                 # Download and process PDF if it's a new paper or newly linked
                 if not existing_sync and not paper.file_path:
-                    file_path = await self._download_attachment(
-                        zotero_key,
-                        f"{paper.id}.pdf"
-                    )
+                    # Check if we have PDF attachments for this paper
+                    pdf_attachments = attachments_by_parent.get(zotero_key, [])
                     
-                    if file_path:
-                        # Process the paper (chunks, embeddings)
-                        paper.file_path = file_path
-                        paper.file_hash = self._calculate_file_hash(file_path)
-                        
-                        # Queue for processing
-                        await PaperProcessorService.process_paper(
-                            str(paper.id),
-                            file_path
+                    for pdf_attachment in pdf_attachments:
+                        file_path = await self._download_pdf_attachment(
+                            pdf_attachment,
+                            library_id,
+                            f"{paper.id}.pdf"
                         )
-                        await self.db.flush()
+                        
+                        if file_path:
+                            # Process the paper (chunks, embeddings)
+                            paper.file_path = file_path
+                            paper.file_hash = self._calculate_file_hash(file_path)
+                            
+                            # Queue for processing
+                            await PaperProcessorService.process_paper(
+                                str(paper.id),
+                                file_path
+                            )
+                            await self.db.flush()
+                            
+                            # Only process the first PDF
+                            break
+                    else:
+                        # No PDF attachments found
+                        logger.info(f"No PDF attachments found for paper {zotero_key}: {paper.title[:50]}...")
                 
                 # Commit this item's changes
                 await self.db.commit()
@@ -403,6 +444,7 @@ class ZoteroService:
             await self.db.commit()
         
         logger.info(f"Zotero sync complete: {new_papers} new, {updated_papers} updated, {failed_papers} failed")
+        logger.info(f"Total attachments available: {sum(len(atts) for atts in attachments_by_parent.values())}")
         return new_papers, updated_papers, failed_papers
     
     def _calculate_file_hash(self, file_path: str) -> str:

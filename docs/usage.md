@@ -2,6 +2,13 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero PDF Sync Fixed
+- **PDF Attachments Now Sync** - PDFs are downloaded during Zotero sync
+  - Previously excluded attachments, preventing PDF downloads
+  - Now fetches both papers AND their PDF attachments
+  - Downloads PDFs for chunk creation and embedding search
+  - Shows count of PDF attachments available during sync
+
 ### Zotero Group Selection Fixed
 - **Frontend Group Display** - Selected groups now properly show as checked when reloading settings
   - Status endpoint returns selected groups and collections

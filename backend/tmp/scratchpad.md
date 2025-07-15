@@ -1,5 +1,55 @@
 # Development Scratchpad
 
+## 2025-07-15: Updated Zotero Sync to Include PDF Attachments
+
+### Problem
+The Zotero sync was excluding attachments, which meant PDFs were not being downloaded. Without PDFs, we cannot build chunks for embedding search. The user correctly identified that we need to sync PDFs to enable the core citation recommendation feature.
+
+### Solution
+Updated the Zotero sync logic to:
+
+1. **Fetch both papers AND their PDF attachments** in `_fetch_items_from_library`:
+   - Changed return type to `Tuple[List[Dict], Dict[str, List[Dict]]]`
+   - Returns papers and a dictionary mapping parent keys to their PDF attachments
+   - Filters for PDF attachments specifically (contentType = "application/pdf")
+
+2. **Updated `fetch_library_items`** to handle the new return format:
+   - Aggregates papers and attachments from all selected libraries
+   - Merges attachment dictionaries properly
+
+3. **Improved PDF download logic** in `sync_library`:
+   - Renamed `_download_attachment` to `_download_pdf_attachment` for clarity
+   - Downloads PDFs using the attachment data fetched earlier
+   - No need for separate API calls to get attachments
+
+4. **Better logging**:
+   - Reports number of papers AND PDF attachments fetched
+   - Shows how many papers have PDF attachments available
+
+### Files Modified
+- `/backend/app/services/zotero_service.py` - Updated sync methods
+- `/backend/test_zotero_sync.py` - Updated test to handle new return format
+- `/backend/test_zotero_sync_with_pdfs.py` - New comprehensive test script
+
+### How to Test
+1. Run the updated test script:
+   ```bash
+   cd backend
+   python test_zotero_sync_with_pdfs.py
+   ```
+
+2. The script will show:
+   - Current papers and PDFs in the database
+   - Number of papers and PDF attachments fetched
+   - Sync results including newly downloaded PDFs
+   - Example of newly added papers with PDF status
+
+### Benefits
+- Enables PDF processing for chunk creation and embeddings
+- More efficient sync - fetches all data in one pass
+- Better visibility into what's being synced
+- Foundation for the citation recommendation engine
+
 ## 2025-07-15: Fixed Zotero Sync Duplicate DOI Issue
 
 ### Problem

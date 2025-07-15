@@ -105,9 +105,11 @@ const ZoteroSettings: React.FC = () => {
         zoteroUserId: zoteroUserId || '',  // Empty string for updates
         autoSyncEnabled,
         syncIntervalMinutes,
-        selectedGroups: selectedGroups.length > 0 ? selectedGroups : undefined,
-        selectedCollections: selectedCollections.length > 0 ? selectedCollections : undefined,
+        selectedGroups: selectedGroups.length > 0 ? selectedGroups : [],
+        selectedCollections: selectedCollections.length > 0 ? selectedCollections : [],
       };
+      
+      console.log('Saving config:', config);
       
       const newStatus = await zoteroService.configure(config);
       setStatus(newStatus);

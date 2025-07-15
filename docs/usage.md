@@ -10,6 +10,18 @@
   - **Error Tracking**: Detailed error traces with context for debugging
   - **File Not Found Tracking**: Specific logging for missing PDF files
   
+- **Frontend Log Viewer** - User-friendly interface for viewing logs
+  - **Access**: Click "View Logs" in Paper Library header
+  - **Features**:
+    - Real-time log display with auto-refresh option
+    - Color-coded log levels for quick visual scanning
+    - Search across all log messages
+    - Filter by level, category, or date range
+    - Pagination controls for browsing large log sets
+    - Detailed view for each log entry with metadata and error traces
+    - Export logs as JSON for external analysis
+    - Clear logs functionality (with confirmation)
+  
 - **API Endpoints for Logs**:
   - `GET /api/v1/logs` - View logs (regular users see only their logs, superusers see all)
   - `GET /api/v1/logs/stats` - Log statistics (superuser only)

@@ -9,6 +9,8 @@ export interface ZoteroConfig {
   zoteroUserId: string;
   autoSyncEnabled: boolean;
   syncIntervalMinutes: number;
+  selectedGroups?: string[];
+  selectedCollections?: string[];
 }
 
 export interface ZoteroStatus {
@@ -27,6 +29,20 @@ export interface ZoteroSyncResult {
   message: string;
 }
 
+export interface ZoteroGroup {
+  id: string;
+  name: string;
+  type: string;
+  owner: string | null;
+}
+
+export interface ZoteroCollection {
+  key: string;
+  name: string;
+  parentCollection: string | null;
+  libraryId: string;
+}
+
 class ZoteroService {
   async configure(config: ZoteroConfig): Promise<ZoteroStatus> {
     const response = await api.post('/zotero/configure', {
@@ -34,6 +50,8 @@ class ZoteroService {
       zotero_user_id: config.zoteroUserId,
       auto_sync_enabled: config.autoSyncEnabled,
       sync_interval_minutes: config.syncIntervalMinutes,
+      selected_groups: config.selectedGroups,
+      selected_collections: config.selectedCollections,
     });
     return this.mapStatus(response.data);
   }
@@ -61,6 +79,18 @@ class ZoteroService {
 
   async disconnect(): Promise<{ success: boolean; message: string }> {
     const response = await api.delete('/zotero/disconnect');
+    return response.data;
+  }
+  
+  async getGroups(): Promise<ZoteroGroup[]> {
+    const response = await api.get('/zotero/groups');
+    return response.data;
+  }
+  
+  async getCollections(libraryId?: string): Promise<ZoteroCollection[]> {
+    const response = await api.get('/zotero/collections', {
+      params: { library_id: libraryId }
+    });
     return response.data;
   }
 

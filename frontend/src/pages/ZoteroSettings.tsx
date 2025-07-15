@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zoteroService } from '../services/zoteroService';
-import type { ZoteroStatus, ZoteroConfig } from '../services/zoteroService';
+import type { ZoteroStatus, ZoteroConfig, ZoteroGroup, ZoteroCollection } from '../services/zoteroService';
 
 const ZoteroSettings: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +17,11 @@ const ZoteroSettings: React.FC = () => {
   const [zoteroUserId, setZoteroUserId] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [syncIntervalMinutes, setSyncIntervalMinutes] = useState(30);
+  const [groups, setGroups] = useState<ZoteroGroup[]>([]);
+  const [collections, setCollections] = useState<ZoteroCollection[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
 
   useEffect(() => {
     loadStatus();
@@ -31,11 +36,31 @@ const ZoteroSettings: React.FC = () => {
       if (status.configured) {
         setAutoSyncEnabled(status.autoSyncEnabled);
         setSyncIntervalMinutes(status.syncIntervalMinutes);
+        // Load groups if configured
+        loadGroups();
       }
     } catch (err) {
       console.error('Failed to load Zotero status:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const loadGroups = async () => {
+    setLoadingGroups(true);
+    try {
+      const groupList = await zoteroService.getGroups();
+      setGroups(groupList);
+      
+      // Load collections for each group
+      for (const group of groupList) {
+        const cols = await zoteroService.getCollections(group.id);
+        setCollections(prev => [...prev, ...cols]);
+      }
+    } catch (err) {
+      console.error('Failed to load groups/collections:', err);
+    } finally {
+      setLoadingGroups(false);
     }
   };
 
@@ -57,6 +82,8 @@ const ZoteroSettings: React.FC = () => {
         zoteroUserId,
         autoSyncEnabled,
         syncIntervalMinutes,
+        selectedGroups: selectedGroups.length > 0 ? selectedGroups : undefined,
+        selectedCollections: selectedCollections.length > 0 ? selectedCollections : undefined,
       };
       
       const newStatus = await zoteroService.configure(config);
@@ -66,6 +93,9 @@ const ZoteroSettings: React.FC = () => {
       // Clear sensitive data
       setApiKey('');
       setZoteroUserId('');
+      
+      // Load groups after successful configuration
+      loadGroups();
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to save configuration');
     } finally {
@@ -184,6 +214,64 @@ const ZoteroSettings: React.FC = () => {
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
+                )}
+                
+                {/* Group and Collection Selection */}
+                {loadingGroups ? (
+                  <div className="text-sm text-gray-600">Loading groups and collections...</div>
+                ) : (
+                  <>
+                    {groups.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">Select Libraries to Sync</h3>
+                        <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+                          {groups.map(group => (
+                            <label key={group.id} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedGroups.includes(group.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedGroups([...selectedGroups, group.id]);
+                                  } else {
+                                    setSelectedGroups(selectedGroups.filter(g => g !== group.id));
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              <span className="text-sm">{group.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {collections.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">Select Collections (Optional)</h3>
+                        <p className="text-xs text-gray-500 mb-2">Leave empty to sync all items from selected libraries</p>
+                        <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+                          {collections.map(collection => (
+                            <label key={collection.key} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedCollections.includes(collection.key)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCollections([...selectedCollections, collection.key]);
+                                  } else {
+                                    setSelectedCollections(selectedCollections.filter(c => c !== collection.key));
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              <span className="text-sm">{collection.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="flex gap-4">

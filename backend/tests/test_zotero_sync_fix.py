@@ -33,7 +33,7 @@ class ZoteroSyncTester:
     """Test harness for Zotero sync functionality."""
     
     def __init__(self, db_url: Optional[str] = None):
-        self.db_url = db_url or settings.SQLALCHEMY_DATABASE_URI
+        self.db_url = db_url or settings.database_url
         self.engine = None
         self.SessionLocal = None
         self.test_user = None
@@ -48,22 +48,15 @@ class ZoteroSyncTester:
         
         # Get or create test user
         async with self.SessionLocal() as session:
-            # Look for existing test user
+            # Look for existing test user with Zotero configuration
             result = await session.execute(
-                select(User).where(User.email == "zotero_test@example.com")
+                select(User).where(User.email == "test@example.com")
             )
             self.test_user = result.scalar_one_or_none()
             
             if not self.test_user:
-                logger.info("Creating test user...")
-                self.test_user = User(
-                    email="zotero_test@example.com",
-                    full_name="Zotero Test User",
-                    hashed_password="test"
-                )
-                session.add(self.test_user)
-                await session.commit()
-                await session.refresh(self.test_user)
+                logger.error("Test user not found. Please ensure test@example.com exists.")
+                raise ValueError("Test user not found")
                 
             # Get Zotero config
             result = await session.execute(

@@ -32,12 +32,12 @@ class CollectionDebugger:
     """Debug tool for collection sync issues."""
     
     def __init__(self):
-        self.engine = create_async_engine(settings.SQLALCHEMY_DATABASE_URI, echo=False)
+        self.engine = create_async_engine(settings.database_url, echo=False)
         self.SessionLocal = sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
         )
         
-    async def analyze_collection_setup(self, user_email: str = "zotero_test@example.com"):
+    async def analyze_collection_setup(self, user_email: str = "test@example.com"):
         """Analyze the collection setup and potential issues."""
         async with self.SessionLocal() as session:
             # Get user and config
@@ -142,7 +142,7 @@ class CollectionDebugger:
                             logger.info(f"  - {title[:50]}...")
                             logger.info(f"    Collections: {collections}")
                             
-    async def test_collection_matching(self, user_email: str = "zotero_test@example.com"):
+    async def test_collection_matching(self, user_email: str = "test@example.com"):
         """Test the collection matching logic in detail."""
         async with self.SessionLocal() as session:
             # Get user

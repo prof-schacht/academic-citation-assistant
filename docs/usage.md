@@ -2,6 +2,19 @@
 
 ## Recent Updates (July 15, 2025)
 
+### Zotero Collection Sync Fixed
+- **Collection-Only Sync** - Fixed issue where selecting only collections (no groups) would fail
+  - Updated collection data format to include library ID: `[{key: "COLLECTION_KEY", libraryId: "users/12345"}]`
+  - System now correctly determines which libraries contain selected collections
+  - Maintains backward compatibility with existing collection configurations
+  - Added comprehensive test coverage for collection sync logic
+
+- **Sync Progress Tracking** - Real-time progress monitoring for sync operations
+  - Shows current step (starting, fetching, processing, completed)
+  - Displays progress counters (processed/total papers, libraries processed)
+  - New API endpoint: `GET /zotero/sync/progress` for monitoring sync status
+  - Progress updates in real-time during sync operations
+
 ### Zotero PDF Sync Fixed
 - **PDF Attachments Now Sync** - PDFs are downloaded during Zotero sync
   - Previously excluded attachments, preventing PDF downloads

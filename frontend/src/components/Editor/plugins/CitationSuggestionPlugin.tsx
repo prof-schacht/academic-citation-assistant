@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getSelection, $isRangeSelection } from 'lexical';
+import { $getSelection, $isRangeSelection, $getRoot } from 'lexical';
 import type { EditorState } from 'lexical';
 import { getCitationWebSocketClient, CitationWebSocketClient } from '../../../services/websocketService';
 import type { CitationSuggestion } from '../../../services/websocketService';

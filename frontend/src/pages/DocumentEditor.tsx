@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '../components/Editor/Editor';
 import CitationPanel from '../components/CitationPanel/CitationPanel';
-import DocumentPapers from '../components/DocumentPapers';
+import DocumentPapers from '../components/DocumentPapersSimple';
 import ExportDialog from '../components/ExportDialog';
 import { documentService } from '../services/documentService';
 import type { DocumentType } from '../services/documentService';

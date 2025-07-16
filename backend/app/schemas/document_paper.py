@@ -5,7 +5,19 @@ import uuid
 
 from pydantic import BaseModel, Field
 
-from app.schemas.paper import PaperResponse
+
+class SimplePaperResponse(BaseModel):
+    """Simplified paper response for document-paper assignments."""
+    id: uuid.UUID
+    title: str
+    authors: Optional[List[str]] = None
+    year: Optional[int] = None
+    journal: Optional[str] = None
+    doi: Optional[str] = None
+    arxiv_id: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 
 class DocumentPaperBase(BaseModel):
@@ -43,7 +55,7 @@ class DocumentPaperResponse(DocumentPaperBase):
     position: int
     added_at: datetime
     added_by: Optional[uuid.UUID]
-    paper: PaperResponse
+    paper: SimplePaperResponse
     
     class Config:
         from_attributes = True

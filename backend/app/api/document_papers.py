@@ -86,10 +86,14 @@ async def assign_paper_to_document(
     
     db.add(doc_paper)
     await db.commit()
-    await db.refresh(doc_paper)
     
-    # Load relationships
-    await db.refresh(doc_paper, ["paper"])
+    # Reload with paper relationship
+    result = await db.execute(
+        select(DocumentPaper)
+        .options(selectinload(DocumentPaper.paper))
+        .where(DocumentPaper.id == doc_paper.id)
+    )
+    doc_paper = result.scalar_one()
     
     # TODO: Add logging
     
@@ -164,9 +168,19 @@ async def bulk_assign_papers(
     
     await db.commit()
     
-    # Load relationships
-    for doc_paper in doc_papers:
-        await db.refresh(doc_paper, ["paper"])
+    # Reload all assignments with paper relationships
+    result = await db.execute(
+        select(DocumentPaper)
+        .options(selectinload(DocumentPaper.paper))
+        .where(
+            and_(
+                DocumentPaper.document_id == document_id,
+                DocumentPaper.paper_id.in_(new_paper_ids)
+            )
+        )
+        .order_by(DocumentPaper.position)
+    )
+    doc_papers = result.scalars().all()
     
     # TODO: Add logging
     
@@ -242,7 +256,19 @@ async def update_paper_assignment(
         doc_paper.position = update_data.position
     
     await db.commit()
-    await db.refresh(doc_paper)
+    
+    # Reload with paper relationship
+    result = await db.execute(
+        select(DocumentPaper)
+        .options(selectinload(DocumentPaper.paper))
+        .where(
+            and_(
+                DocumentPaper.document_id == document_id,
+                DocumentPaper.paper_id == paper_id
+            )
+        )
+    )
+    doc_paper = result.scalar_one()
     
     return doc_paper
 

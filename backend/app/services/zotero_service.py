@@ -46,7 +46,7 @@ class ZoteroService:
         await self._load_config()
         self._session = aiohttp.ClientSession(
             headers={
-                "Zotero-API-Key": self._config.api_key if self._config else "",
+                "Authorization": f"Bearer {self._config.api_key}" if self._config and self._config.api_key else "",
                 "Zotero-API-Version": "3"
             }
         )

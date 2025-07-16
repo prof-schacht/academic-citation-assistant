@@ -20,8 +20,8 @@ router = APIRouter(prefix="/zotero", tags=["zotero"])
 
 class ZoteroConfigRequest(BaseModel):
     """Request model for Zotero configuration."""
-    api_key: str = Field(..., description="Zotero API key")
-    zotero_user_id: str = Field(..., description="Numeric Zotero user ID")
+    api_key: Optional[str] = Field(None, description="Zotero API key (required for initial setup)")
+    zotero_user_id: Optional[str] = Field(None, description="Numeric Zotero user ID (required for initial setup)")
     auto_sync_enabled: bool = Field(True, description="Enable automatic sync")
     sync_interval_minutes: int = Field(30, description="Sync interval in minutes")
     selected_groups: Optional[List[str]] = Field(None, description="List of selected group IDs")
@@ -55,6 +55,7 @@ async def configure_zotero(
     current_user: User = Depends(get_current_user)
 ) -> ZoteroConfigResponse:
     """Configure Zotero integration for the current user."""
+    logger.info(f"Received config request: selected_groups={config.selected_groups}, selected_collections={config.selected_collections}")
     try:
         from sqlalchemy import select
         from app.models import ZoteroConfig
@@ -81,8 +82,10 @@ async def configure_zotero(
             # Update selected groups and collections
             import json
             if config.selected_groups is not None:
+                logger.info(f"Updating selected_groups to: {config.selected_groups}")
                 zotero_config.selected_groups = json.dumps(config.selected_groups)
             if config.selected_collections is not None:
+                logger.info(f"Updating selected_collections to: {config.selected_collections}")
                 zotero_config.selected_collections = json.dumps(config.selected_collections)
                 
             zotero_config.updated_at = datetime.utcnow()
@@ -110,8 +113,10 @@ async def configure_zotero(
             # Update selected groups and collections
             import json
             if config.selected_groups is not None:
+                logger.info(f"Updating selected_groups to: {config.selected_groups}")
                 zotero_config.selected_groups = json.dumps(config.selected_groups)
             if config.selected_collections is not None:
+                logger.info(f"Updating selected_collections to: {config.selected_collections}")
                 zotero_config.selected_collections = json.dumps(config.selected_collections)
         
         await db.commit()

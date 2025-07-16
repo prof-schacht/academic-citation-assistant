@@ -12,6 +12,7 @@ from app.db.base_class import Base
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.citation import Citation
+    from app.models.document_paper import DocumentPaper
 
 
 class Document(Base):
@@ -49,6 +50,7 @@ class Document(Base):
     # Relationships
     owner: Mapped["User"] = relationship("User", back_populates="documents")
     citations: Mapped[List["Citation"]] = relationship("Citation", back_populates="document", cascade="all, delete-orphan")
+    document_papers: Mapped[List["DocumentPaper"]] = relationship("DocumentPaper", back_populates="document", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Document(id={self.id}, title={self.title})>"

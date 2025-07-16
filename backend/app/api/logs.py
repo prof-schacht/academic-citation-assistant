@@ -4,9 +4,10 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user
+from app.db.session import get_db
+from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.system_log import LogLevel, LogCategory
 from app.schemas.system_log import SystemLog, SystemLogList, SystemLogFilter
@@ -16,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=SystemLogList)
-def get_logs(
+async def get_logs(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(50, ge=1, le=100, description="Items per page"),
     level: Optional[LogLevel] = Query(None, description="Filter by log level"),
@@ -27,7 +28,7 @@ def get_logs(
     start_date: Optional[datetime] = Query(None, description="Filter logs after this date"),
     end_date: Optional[datetime] = Query(None, description="Filter logs before this date"),
     search: Optional[str] = Query(None, description="Search in log messages"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> SystemLogList:
     """
@@ -82,9 +83,9 @@ def get_logs(
 
 
 @router.get("/stats")
-def get_log_stats(
+async def get_log_stats(
     days: int = Query(7, ge=1, le=90, description="Number of days for statistics"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> dict:
     """
@@ -103,9 +104,9 @@ def get_log_stats(
 
 
 @router.delete("/old")
-def delete_old_logs(
+async def delete_old_logs(
     days: int = Query(30, ge=1, description="Delete logs older than this many days"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ) -> dict:
     """

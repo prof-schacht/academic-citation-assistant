@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.library import LibraryPaper
     from app.models.paper_chunk import PaperChunk
     from app.models.zotero_sync import ZoteroSync
+    from app.models.document_paper import DocumentPaper
 
 
 class Paper(Base):
@@ -63,6 +64,10 @@ class Paper(Base):
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
     processing_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
+    # Metadata source tracking
+    metadata_source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'manual', 'zotero', 'crossref', 'arxiv', etc.
+    last_metadata_fetch: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -72,6 +77,7 @@ class Paper(Base):
     library_papers: Mapped[List["LibraryPaper"]] = relationship("LibraryPaper", back_populates="paper", cascade="all, delete-orphan")
     chunks: Mapped[List["PaperChunk"]] = relationship("PaperChunk", back_populates="paper", cascade="all, delete-orphan")
     zotero_sync: Mapped[Optional["ZoteroSync"]] = relationship("ZoteroSync", back_populates="paper", cascade="all, delete-orphan")
+    document_papers: Mapped[List["DocumentPaper"]] = relationship("DocumentPaper", back_populates="paper", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Paper(id={self.id}, title={self.title[:50]}...)>"

@@ -5,6 +5,7 @@ import math
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -12,6 +13,7 @@ from app.schemas.document import (
     Document, DocumentCreate, DocumentUpdate, DocumentList
 )
 from app.services.document import DocumentService
+from app.services.export_service import ExportService
 
 
 router = APIRouter()
@@ -152,3 +154,50 @@ async def delete_document(
         )
     
     return None
+
+
+@router.get("/{document_id}/export/bibtex", response_class=PlainTextResponse)
+async def export_document_bibtex(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """Export all papers assigned to a document as BibTeX."""
+    try:
+        bibtex_content = await ExportService.export_document_bibtex(db, document_id, user_id)
+        return PlainTextResponse(
+            content=bibtex_content,
+            media_type="application/x-bibtex",
+            headers={
+                "Content-Disposition": f"attachment; filename=document_{document_id}_bibliography.bib"
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@router.get("/{document_id}/export/latex", response_class=PlainTextResponse)
+async def export_document_latex(
+    document_id: uuid.UUID,
+    template: str = Query("article", description="LaTeX document class template"),
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """Export document content to LaTeX format."""
+    try:
+        latex_content = await ExportService.export_document_latex(db, document_id, user_id, template)
+        return PlainTextResponse(
+            content=latex_content,
+            media_type="application/x-tex",
+            headers={
+                "Content-Disposition": f"attachment; filename=document_{document_id}.tex"
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )

@@ -2,13 +2,25 @@
 
 ## Recent Updates (July 15, 2025)
 
-### New: System Logging and Monitoring
+### Zotero Sync - Critical Fixes Applied ⚠️
+- **Authorization Fixed**: Changed from incorrect `Zotero-API-Key` header to proper `Authorization: Bearer {api_key}` format
+- **API Connection**: ✅ Now properly authenticates with Zotero API
+- **Group Selection**: ⚠️ Frontend saves groups but configuration update has issues
+- **Sync Performance**: ⚠️ Works but very slow for large libraries (2000+ items may timeout)
+- **Known Issues**:
+  - Large group sync (like COAI with 2268 items) may timeout
+  - Frontend group selection needs to be saved and re-selected manually
+  - Progress tracking doesn't update during long syncs
+- **Workaround**: For large libraries, use smaller collections or sync in batches
+
+### New: System Logging and Monitoring ✅
 - **Comprehensive Logging System** - Track all system activities and debug issues
   - **Log Categories**: Zotero sync, PDF processing, authentication, API calls, database operations
   - **Log Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
   - **Log Viewer API**: View logs with pagination, filtering, and search
   - **Error Tracking**: Detailed error traces with context for debugging
   - **File Not Found Tracking**: Specific logging for missing PDF files
+  - **Status**: ✅ Fully operational
   
 - **Frontend Log Viewer** - User-friendly interface for viewing logs
   - **Access**: 
@@ -25,9 +37,9 @@
     - Clear logs functionality (with confirmation)
   
 - **API Endpoints for Logs**:
-  - `GET /api/v1/logs` - View logs (regular users see only their logs, superusers see all)
-  - `GET /api/v1/logs/stats` - Log statistics (superuser only)
-  - `DELETE /api/v1/logs/old` - Clean up old logs (superuser only)
+  - `GET /api/logs/` - View logs with pagination and filtering
+  - `GET /api/logs/stats` - Get log statistics by level and category
+  - `DELETE /api/logs/old` - Clean up old logs (specify days to keep)
   
 - **Log Filtering Options**:
   - By level: `?level=ERROR`
@@ -35,6 +47,11 @@
   - By date range: `?start_date=2025-07-15&end_date=2025-07-16`
   - By search term: `?search=file%20not%20found`
   - Pagination: `?page=1&per_page=50`
+  
+- **Installation Note**: If you see import errors for `lucide-react`, run:
+  ```bash
+  docker-compose exec frontend npm install lucide-react
+  ```
 
 ## Recent Updates (July 15, 2025)
 

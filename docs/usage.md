@@ -39,20 +39,37 @@ The application now supports a document-centric approach where you start with yo
 
 ## Recent Updates (July 15, 2025)
 
-### Zotero Sync - Critical Fixes Applied ⚠️
-- **Authorization Fixed**: Changed from incorrect `Zotero-API-Key` header to proper `Authorization: Bearer {api_key}` format
-- **API Connection**: ✅ Now properly authenticates with Zotero API
-- **Group Selection**: ⚠️ Frontend saves groups but configuration update has issues
-- **Sync Performance**: ⚠️ Works but very slow for large libraries (2000+ items may timeout)
-- **Known Issues**:
-  - Large group sync (like COAI with 2268 items) may timeout
-  - Frontend group selection needs to be saved and re-selected manually
-  - Progress tracking doesn't update during long syncs
-- **Workaround**: For large libraries, use smaller collections or sync in batches
+### Document-Centric Workflow Frontend ✅
+- **Zotero Sync Removed**: All Zotero functionality has been removed in favor of document-centric approach
+- **New Workflow**:
+  1. Create or open a document
+  2. Upload papers to your library
+  3. Assign papers to documents from the library (📎 icon)
+  4. Manage bibliography in the document's Bibliography tab
+  5. Export as BibTeX or LaTeX
+
+- **Document Editor Enhancements**:
+  - **Three Tabs**: Editor | Bibliography | Citations
+  - **Bibliography Tab**: 
+    - View all assigned papers
+    - Drag-and-drop reordering
+    - Add/edit notes for each paper
+    - Remove papers from bibliography
+  - **Citations Tab**: Real-time citation suggestions with badge counter
+
+- **Paper Library Enhancements**:
+  - **Assign to Document** button (📎) on indexed papers
+  - Quick assignment dialog with document search
+  - Add optional notes when assigning
+
+- **Export Improvements**:
+  - **BibTeX Export**: Download bibliography as `.bib` file
+  - **LaTeX Export**: Download full document as `.tex` file
+  - All original formats still supported (Markdown, HTML, Plain Text, JSON)
 
 ### New: System Logging and Monitoring ✅
 - **Comprehensive Logging System** - Track all system activities and debug issues
-  - **Log Categories**: Zotero sync, PDF processing, authentication, API calls, database operations
+  - **Log Categories**: Document operations, PDF processing, authentication, API calls, database operations
   - **Log Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
   - **Log Viewer API**: View logs with pagination, filtering, and search
   - **Error Tracking**: Detailed error traces with context for debugging

@@ -44,13 +44,13 @@ const LogViewer: React.FC<LogViewerProps> = ({
   // Set static categories based on backend enum
   useEffect(() => {
     setCategories([
-      'ZOTERO_SYNC',
       'PDF_PROCESSING',
       'SYSTEM',
       'AUTH',
       'API',
       'DATABASE',
-      'SEARCH'
+      'SEARCH',
+      'DOCUMENT'
     ]);
   }, []);
 

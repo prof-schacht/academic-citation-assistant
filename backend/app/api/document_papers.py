@@ -21,7 +21,6 @@ from app.schemas.document_paper import (
     DocumentPaperBulkAssign,
     DocumentPaperReorder
 )
-from app.core.system_log import log_activity, LogLevel, LogCategory
 
 router = APIRouter()
 
@@ -92,17 +91,7 @@ async def assign_paper_to_document(
     # Load relationships
     await db.refresh(doc_paper, ["paper"])
     
-    await log_activity(
-        db,
-        level=LogLevel.INFO,
-        category=LogCategory.DOCUMENT,
-        message=f"Assigned paper '{paper.title}' to document '{document.title}'",
-        user_id=current_user.id,
-        metadata={
-            "document_id": str(document_id),
-            "paper_id": str(paper_assignment.paper_id)
-        }
-    )
+    # TODO: Add logging
     
     return doc_paper
 
@@ -179,17 +168,7 @@ async def bulk_assign_papers(
     for doc_paper in doc_papers:
         await db.refresh(doc_paper, ["paper"])
     
-    await log_activity(
-        db,
-        level=LogLevel.INFO,
-        category=LogCategory.DOCUMENT,
-        message=f"Bulk assigned {len(doc_papers)} papers to document '{document.title}'",
-        user_id=current_user.id,
-        metadata={
-            "document_id": str(document_id),
-            "paper_count": len(doc_papers)
-        }
-    )
+    # TODO: Add logging
     
     return doc_papers
 
@@ -308,17 +287,7 @@ async def reorder_papers(
     
     await db.commit()
     
-    await log_activity(
-        db,
-        level=LogLevel.INFO,
-        category=LogCategory.DOCUMENT,
-        message=f"Reordered papers in document '{document.title}'",
-        user_id=current_user.id,
-        metadata={
-            "document_id": str(document_id),
-            "paper_count": len(reorder_data.paper_ids)
-        }
-    )
+    # TODO: Add logging
     
     return {"message": "Papers reordered successfully"}
 
@@ -351,16 +320,6 @@ async def remove_paper_from_document(
     await db.delete(doc_paper)
     await db.commit()
     
-    await log_activity(
-        db,
-        level=LogLevel.INFO,
-        category=LogCategory.DOCUMENT,
-        message=f"Removed paper from document",
-        user_id=current_user.id,
-        metadata={
-            "document_id": str(document_id),
-            "paper_id": str(paper_id)
-        }
-    )
+    # TODO: Add logging
     
     return {"message": "Paper removed from document successfully"}

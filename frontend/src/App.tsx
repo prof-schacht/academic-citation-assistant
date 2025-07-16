@@ -4,7 +4,6 @@ import HomePage from './pages/HomePage';
 import DocumentsList from './pages/DocumentsList';
 import DocumentEditor from './pages/DocumentEditor';
 import PaperLibrary from './pages/PaperLibrary';
-import ZoteroSettings from './pages/ZoteroSettings';
 import LogsPage from './pages/LogsPage';
 
 function App() {
@@ -17,7 +16,6 @@ function App() {
         <Route path="/editor/:id" element={<DocumentEditor />} />
         <Route path="/library" element={<PaperLibrary />} />
         <Route path="/papers" element={<PaperLibrary />} />
-        <Route path="/zotero" element={<ZoteroSettings />} />
         <Route path="/logs" element={<LogsPage />} />
       </Routes>
     </Router>

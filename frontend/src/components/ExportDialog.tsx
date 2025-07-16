@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import type { EditorState } from 'lexical';
 import { exportDocument, downloadFile } from '../utils/exportDocument';
+import { documentPaperService } from '../services/documentPaperService';
 
 interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
   documentTitle: string;
+  documentId?: string;
   editorState: EditorState | null;
 }
 
@@ -13,24 +15,40 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
   isOpen,
   onClose,
   documentTitle,
+  documentId,
   editorState,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
   
   if (!isOpen) return null;
 
-  const handleExport = async (format: 'markdown' | 'html' | 'txt' | 'json') => {
-    if (!editorState) return;
-    
+  const handleExport = async (format: 'markdown' | 'html' | 'txt' | 'json' | 'bibtex' | 'latex') => {
     setIsExporting(true);
     try {
-      const blob = await exportDocument(editorState, {
-        title: documentTitle,
-        format,
-      });
-      
-      const extension = format === 'markdown' ? 'md' : format;
-      downloadFile(blob, `${documentTitle}.${extension}`);
+      if (format === 'bibtex') {
+        if (!documentId) {
+          alert('Please save the document before exporting BibTeX');
+          return;
+        }
+        const bibtex = await documentPaperService.exportBibTeX(documentId);
+        documentPaperService.downloadFile(bibtex, `${documentTitle}_bibliography.bib`, 'application/x-bibtex');
+      } else if (format === 'latex') {
+        if (!documentId) {
+          alert('Please save the document before exporting LaTeX');
+          return;
+        }
+        const latex = await documentPaperService.exportLaTeX(documentId);
+        documentPaperService.downloadFile(latex, `${documentTitle}.tex`, 'application/x-tex');
+      } else {
+        if (!editorState) return;
+        const blob = await exportDocument(editorState, {
+          title: documentTitle,
+          format,
+        });
+        
+        const extension = format === 'markdown' ? 'md' : format;
+        downloadFile(blob, `${documentTitle}.${extension}`);
+      }
       onClose();
     } catch (error) {
       console.error('Export failed:', error);
@@ -58,6 +76,18 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
       name: 'Plain Text',
       description: 'Simple text without formatting',
       icon: '📄',
+    },
+    {
+      format: 'latex' as const,
+      name: 'LaTeX',
+      description: 'Professional typesetting for academic papers',
+      icon: '📐',
+    },
+    {
+      format: 'bibtex' as const,
+      name: 'BibTeX',
+      description: 'Bibliography for LaTeX documents',
+      icon: '📚',
     },
     {
       format: 'json' as const,
@@ -102,11 +132,6 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
           ))}
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Note: LaTeX and Word exports coming soon!
-          </p>
-        </div>
       </div>
     </div>
   );

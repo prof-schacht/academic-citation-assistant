@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FileUpload from '../components/FileUpload/FileUpload';
+import SelectDocumentDialog from '../components/SelectDocumentDialog';
 import { paperService } from '../services/paperService';
 
 interface Paper {
@@ -23,6 +24,8 @@ const PaperLibrary: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'indexed' | 'processing' | 'error'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'citations'>('date');
+  const [selectedPaper, setSelectedPaper] = useState<{ id: string; title: string } | null>(null);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
   useEffect(() => {
     loadPapers();
@@ -117,15 +120,6 @@ const PaperLibrary: React.FC = () => {
                 className="text-gray-600 hover:text-gray-900"
               >
                 Back to Documents
-              </button>
-              <button
-                onClick={() => navigate('/zotero')}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Zotero Sync
               </button>
               <button
                 onClick={() => navigate('/logs')}
@@ -257,6 +251,19 @@ const PaperLibrary: React.FC = () => {
                       </div>
                     </div>
                     <div className="ml-4 flex items-center space-x-2">
+                      {paper.status === 'indexed' && (
+                        <button
+                          className="p-1 text-gray-400 hover:text-blue-600"
+                          title="Assign to Document"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPaper({ id: paper.id, title: paper.title });
+                            setShowAssignDialog(true);
+                          }}
+                        >
+                          📎
+                        </button>
+                      )}
                       <button
                         className="p-1 text-gray-400 hover:text-gray-600"
                         title="Edit"
@@ -285,6 +292,23 @@ const PaperLibrary: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Select Document Dialog */}
+      {selectedPaper && (
+        <SelectDocumentDialog
+          paperId={selectedPaper.id}
+          paperTitle={selectedPaper.title}
+          isOpen={showAssignDialog}
+          onClose={() => {
+            setShowAssignDialog(false);
+            setSelectedPaper(null);
+          }}
+          onAssigned={() => {
+            setShowAssignDialog(false);
+            setSelectedPaper(null);
+          }}
+        />
+      )}
     </div>
   );
 };

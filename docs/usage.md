@@ -1,5 +1,42 @@
 # Usage Guide - Academic Citation Assistant
 
+## Recent Updates (July 16, 2025)
+
+### NEW: Document-Centric Workflow 🎯
+The application now supports a document-centric approach where you start with your document and build its bibliography:
+
+#### Document-Paper Assignment
+- **Assign Papers to Documents**: Build your bibliography by assigning papers to specific documents
+- **Bulk Assignment**: Assign multiple papers at once for efficiency
+- **Reorder Papers**: Organize your bibliography with custom ordering
+- **Notes**: Add context-specific notes about why each paper is relevant
+
+#### Export Functionality
+- **BibTeX Export**: Export your document's bibliography as a `.bib` file
+  - GET `/api/documents/{id}/export/bibtex`
+  - Includes all assigned papers with proper citation keys
+  - Compatible with LaTeX bibliography managers
+  
+- **LaTeX Export**: Export your document content as a `.tex` file
+  - GET `/api/documents/{id}/export/latex`
+  - Converts Lexical editor content to LaTeX format
+  - Includes document structure, formatting, and bibliography references
+
+#### API Endpoints
+- `POST /api/documents/{id}/papers` - Assign a paper to document
+- `POST /api/documents/{id}/papers/bulk` - Bulk assign multiple papers
+- `GET /api/documents/{id}/papers` - List all papers assigned to document
+- `PATCH /api/documents/{id}/papers/{paper_id}` - Update assignment (notes, position)
+- `POST /api/documents/{id}/papers/reorder` - Reorder papers in bibliography
+- `DELETE /api/documents/{id}/papers/{paper_id}` - Remove paper from document
+
+#### Metadata Enrichment (Coming Soon)
+- Automatic metadata fetching from external sources:
+  - arXiv API for preprints
+  - Crossref for DOI resolution
+  - Semantic Scholar for citation data
+  - OpenAlex for comprehensive metadata
+
 ## Recent Updates (July 15, 2025)
 
 ### Zotero Sync - Critical Fixes Applied ⚠️

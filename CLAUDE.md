@@ -23,6 +23,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 16. Make Screenshot of the frontend application to anlayze look and feel using Playwright.
 17. Try to read the javascript console using Playwright for debugging.
 18. If you have implemented an issue ensure that you update the issue in github and close it.
+19. Always update the version build number and show it on the front-end with a build number so that it's clear which version is deployed right now. 
 
 ## Project Overview
 

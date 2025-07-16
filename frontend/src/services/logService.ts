@@ -4,7 +4,7 @@ export interface LogEntry {
   id: string;
   created_at: string;
   level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
-  category: 'ZOTERO_SYNC' | 'PDF_PROCESSING' | 'SYSTEM' | 'AUTH' | 'API' | 'DATABASE' | 'SEARCH';
+  category: 'PDF_PROCESSING' | 'SYSTEM' | 'AUTH' | 'API' | 'DATABASE' | 'SEARCH' | 'DOCUMENT';
   message: string;
   details?: Record<string, any>;
   error_trace?: string;
@@ -156,13 +156,13 @@ class LogService {
 
   formatCategory(category: string): string {
     const categoryMap: Record<string, string> = {
-      'ZOTERO_SYNC': 'Zotero Sync',
       'PDF_PROCESSING': 'PDF Processing',
       'SYSTEM': 'System',
       'AUTH': 'Authentication',
       'API': 'API',
       'DATABASE': 'Database',
-      'SEARCH': 'Search'
+      'SEARCH': 'Search',
+      'DOCUMENT': 'Document'
     };
     return categoryMap[category] || category;
   }

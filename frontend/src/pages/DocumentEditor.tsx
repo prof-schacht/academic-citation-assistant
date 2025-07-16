@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '../components/Editor/Editor';
 import CitationPanel from '../components/CitationPanel/CitationPanel';
+import DocumentPapers from '../components/DocumentPapers';
 import ExportDialog from '../components/ExportDialog';
 import { documentService } from '../services/documentService';
 import type { DocumentType } from '../services/documentService';
@@ -20,6 +21,7 @@ const DocumentEditor: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(true);
+  const [activeTab, setActiveTab] = useState<'editor' | 'bibliography' | 'citations'>('editor');
   const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion[]>([]);
   const [citationConnectionStatus, setCitationConnectionStatus] = useState(false);
   const editorStateRef = useRef<EditorState | null>(null);
@@ -221,37 +223,105 @@ const DocumentEditor: React.FC = () => {
         </div>
       </header>
 
-      {/* Main content area with split layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Editor - 60% width */}
-        <div className="flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200">
-          <Editor
-            documentId={document.id}
-            initialContent={document.content || undefined}
-            onSave={handleSave}
-            autoSaveDelay={2000}
-            userId="test-user"
-            onCitationSuggestionsUpdate={setCitationSuggestions}
-            onCitationConnectionChange={setCitationConnectionStatus}
-            onRegisterCitationInsert={(handler) => {
-              insertCitationRef.current = handler;
-            }}
-          />
-        </div>
+      {/* Tab navigation */}
+      <div className="border-b border-gray-200 bg-white">
+        <nav className="flex space-x-8 px-6" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('editor')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'editor'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Editor
+          </button>
+          <button
+            onClick={() => setActiveTab('bibliography')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'bibliography'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Bibliography
+          </button>
+          <button
+            onClick={() => setActiveTab('citations')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm relative ${
+              activeTab === 'citations'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Citations
+            {citationSuggestions.length > 0 && activeTab !== 'citations' && (
+              <span className="absolute -top-1 -right-2 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {citationSuggestions.length}
+              </span>
+            )}
+          </button>
+        </nav>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'editor' && (
+          <div className="h-full flex">
+            <div className={showCitationPanel ? "flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>
+              <Editor
+                documentId={document.id}
+                initialContent={document.content || undefined}
+                onSave={handleSave}
+                autoSaveDelay={2000}
+                userId="test-user"
+                onCitationSuggestionsUpdate={setCitationSuggestions}
+                onCitationConnectionChange={setCitationConnectionStatus}
+                onRegisterCitationInsert={(handler) => {
+                  insertCitationRef.current = handler;
+                }}
+              />
+            </div>
+            {showCitationPanel && (
+              <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
+                <CitationPanel 
+                  documentId={document.id} 
+                  suggestions={citationSuggestions}
+                  isConnected={citationConnectionStatus}
+                  onInsertCitation={(citation) => {
+                    if (insertCitationRef.current) {
+                      insertCitationRef.current(citation);
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
         
-        {/* Citation suggestions panel - 40% width */}
-        {showCitationPanel && (
-          <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
+        {activeTab === 'bibliography' && (
+          <div className="h-full overflow-y-auto bg-white p-6">
+            <DocumentPapers
+              documentId={document.id}
+              documentTitle={document.title}
+            />
+          </div>
+        )}
+        
+        {activeTab === 'citations' && (
+          <div className="h-full bg-gray-50 overflow-hidden">
             <CitationPanel 
-      documentId={document.id} 
-      suggestions={citationSuggestions}
-      isConnected={citationConnectionStatus}
-      onInsertCitation={(citation) => {
-        if (insertCitationRef.current) {
-          insertCitationRef.current(citation);
-        }
-      }}
-    />
+              documentId={document.id} 
+              suggestions={citationSuggestions}
+              isConnected={citationConnectionStatus}
+              onInsertCitation={(citation) => {
+                if (insertCitationRef.current) {
+                  insertCitationRef.current(citation);
+                  // Switch back to editor tab after inserting
+                  setActiveTab('editor');
+                }
+              }}
+            />
           </div>
         )}
       </div>
@@ -261,6 +331,7 @@ const DocumentEditor: React.FC = () => {
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
         documentTitle={document.title}
+        documentId={document.id}
         editorState={editorStateRef.current}
       />
     </div>

@@ -39,7 +39,7 @@ The application now supports a document-centric approach where you start with yo
 
 ## Recent Updates (July 15, 2025)
 
-### Document-Centric Workflow Frontend ✅
+### Document-Centric Workflow Frontend ✅ (Fixed July 16)
 - **Zotero Sync Removed**: All Zotero functionality has been removed in favor of document-centric approach
 - **New Workflow**:
   1. Create or open a document
@@ -66,6 +66,8 @@ The application now supports a document-centric approach where you start with yo
   - **BibTeX Export**: Download bibliography as `.bib` file
   - **LaTeX Export**: Download full document as `.tex` file
   - All original formats still supported (Markdown, HTML, Plain Text, JSON)
+
+- **Bug Fix (July 16)**: Fixed paper assignment API errors that prevented papers from being assigned to documents. The document-paper relationship loading has been corrected and all assignment features now work properly.
 
 ### New: System Logging and Monitoring ✅
 - **Comprehensive Logging System** - Track all system activities and debug issues

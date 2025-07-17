@@ -2,6 +2,21 @@
 
 ## Recent Updates (July 17, 2025)
 
+### Bug Fix: Content Restoration on Tab Switch (v0.0.2) 🔧
+Fixed an issue where saved content was not being restored when switching back to the editor tab:
+
+#### Issue
+- When switching from the editor tab to bibliography/citations tabs, content would auto-save correctly
+- However, when switching back to the editor tab, the saved content would not be restored
+- The editor would show the initial content loaded when the document was first opened
+- This was due to the Editor component being unmounted/remounted on tab switches and using stale content
+
+#### Solution
+- Added document content reload when switching back to the editor tab
+- Updated LoadInitialContentPlugin to properly handle content updates
+- Documents now reload with the latest saved content when returning to the editor tab
+- Tab switching now preserves all edits made during the session
+
 ### Bug Fix: Citation Auto-Save (v0.0.1) 🔧
 Fixed an issue where documents wouldn't auto-save after inserting citations:
 
@@ -714,3 +729,22 @@ ws://localhost:8000/ws/citations?user_id={user_id}
 ---
 
 Last updated: 2025-07-17
+
+## Version History
+
+### v0.0.2 - Enhanced Save Mechanisms
+- Fixed: Added multiple save triggers to prevent data loss
+  - Immediate save when clicking outside the editor
+  - Forced save with delay when switching tabs
+  - Direct save using current editor state
+- Fixed: First content change now always triggers auto-save
+- Added: Comprehensive logging for debugging save issues
+
+### v0.0.1 - Citation Save Fix
+- Fixed: Document content now saves immediately after citation insertion
+- Fixed: First content change in editor triggers auto-save correctly
+- Fixed: Citations automatically added to bibliography when inserted
+- Fixed: Citations tracked and displayed in Citations tab
+
+### Known Issues
+- LaTeX-style citations are shown as visual icons but the underlying LaTeX command may need adjustment for your specific LaTeX setup

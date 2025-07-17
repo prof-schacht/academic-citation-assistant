@@ -1,3 +1,3 @@
-export const APP_VERSION = '1.3.0';
-export const BUILD_NUMBER = '20250117-001-BULK-DELETE';
+export const APP_VERSION = '1.4.2';
+export const BUILD_NUMBER = '20250117-009-FIX-TAB-CONTENT-RESTORE';
 export const BUILD_TIME = new Date().toISOString();

@@ -159,11 +159,27 @@ const DocumentEditor: React.FC = () => {
     }
   };
 
-  const handleTabChange = (newTab: 'editor' | 'bibliography' | 'citations') => {
+  const handleTabChange = async (newTab: 'editor' | 'bibliography' | 'citations') => {
+    console.log('[DocumentEditor] Tab change from', activeTab, 'to', newTab);
+    
     // Save current editor content before switching tabs
     if (activeTab === 'editor' && editorSaveRef.current) {
+      console.log('[DocumentEditor] Forcing save before tab change');
+      // Call the save function and wait a moment for it to complete
       editorSaveRef.current();
+      // Add a small delay to ensure the save completes
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
+    
+    // If switching back to editor tab, reload the document to get latest content
+    if (newTab === 'editor' && activeTab !== 'editor' && document) {
+      console.log('[DocumentEditor] Switching back to editor - reloading document');
+      const updatedDoc = await loadDocument(document.id);
+      if (updatedDoc) {
+        console.log('[DocumentEditor] Document reloaded with latest content');
+      }
+    }
+    
     setActiveTab(newTab);
   };
 
@@ -310,7 +326,17 @@ const DocumentEditor: React.FC = () => {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden" onClick={(e) => {
+        // Save when clicking outside editor but within the document area
+        const target = e.target as HTMLElement;
+        if (activeTab === 'editor' && 
+            editorSaveRef.current && 
+            !target.closest('.lexical-editor') && 
+            !target.closest('.citation-panel')) {
+          console.log('[DocumentEditor] Click outside editor - saving');
+          editorSaveRef.current();
+        }
+      }}>
         {activeTab === 'editor' && (
           <div className="h-full flex">
             <div className={showCitationPanel ? "flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>

@@ -43,11 +43,19 @@ interface EditorProps {
 // Plugin to load initial content
 function LoadInitialContentPlugin({ content }: { content?: any }) {
   const [editor] = useLexicalComposerContext();
+  const [hasLoadedInitialContent, setHasLoadedInitialContent] = useState(false);
+  const contentRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!content) {
+    // Check if content has actually changed (not just the reference)
+    const contentChanged = JSON.stringify(content) !== JSON.stringify(contentRef.current);
+    
+    if (!content || (!contentChanged && hasLoadedInitialContent)) {
       return;
     }
+    
+    console.log('[LoadInitialContentPlugin] Loading content, contentChanged:', contentChanged);
+    contentRef.current = content;
     
     editor.update(() => {
       try {
@@ -70,6 +78,7 @@ function LoadInitialContentPlugin({ content }: { content?: any }) {
         if (editorStateConfig && editorStateConfig.root) {
           const parsedState = editor.parseEditorState(editorStateConfig);
           editor.setEditorState(parsedState);
+          setHasLoadedInitialContent(true);
         }
       } catch (e) {
         console.error('Failed to load initial content:', e);
@@ -78,7 +87,7 @@ function LoadInitialContentPlugin({ content }: { content?: any }) {
         root.clear();
       }
     });
-  }, [content, editor]);
+  }, [content, editor, hasLoadedInitialContent]);
 
   return null;
 }
@@ -107,6 +116,7 @@ const Editor: React.FC<EditorProps> = ({
   const [wordCount, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
   const wsClientRef = useRef<CitationWebSocketClient | null>(null);
+  const currentEditorStateRef = useRef<EditorState | null>(null);
 
   // Create debounced save function
   const debouncedSave = useCallback(
@@ -134,24 +144,63 @@ const Editor: React.FC<EditorProps> = ({
   const handleChange = useCallback((editorState: EditorState) => {
     console.log('[Editor] onChange triggered, hasContentChanged:', hasContentChanged);
     
-    // Only start auto-saving after the user has made changes
+    // Store current editor state
+    currentEditorStateRef.current = editorState;
+    
+    // Mark that content has changed
     if (!hasContentChanged) {
       setHasContentChanged(true);
     }
     
-    // Only auto-save if we have a document ID and content has been changed
-    if (documentId && hasContentChanged) {
+    // Auto-save if we have a document ID
+    // Remove the hasContentChanged check to ensure saves happen from the first change
+    if (documentId) {
       console.log('[Editor] Triggering auto-save');
       debouncedSave(editorState);
     }
   }, [documentId, hasContentChanged, debouncedSave]);
 
+  // Create immediate save function
+  const saveImmediately = useCallback(async () => {
+    console.log('[Editor] Immediate save requested');
+    if (!documentId || !currentEditorStateRef.current) {
+      console.log('[Editor] Cannot save - no documentId or editorState');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const content = currentEditorStateRef.current.toJSON();
+      console.log('[Editor] Saving content immediately');
+      await documentService.update(documentId, { content });
+      setLastSaved(new Date());
+      
+      if (onSave) {
+        onSave(content, currentEditorStateRef.current);
+      }
+      console.log('[Editor] Immediate save completed');
+    } catch (error) {
+      console.error('Failed to save immediately:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [documentId, onSave]);
+
   // Expose save function to parent
   useEffect(() => {
     if (onEditorReady) {
-      onEditorReady(() => debouncedSave.flush());
+      onEditorReady(() => {
+        console.log('[Editor] Manual save triggered');
+        // First try immediate save if we have content
+        if (currentEditorStateRef.current) {
+          saveImmediately();
+        } else {
+          // Fallback to flush
+          debouncedSave.flush();
+        }
+      });
     }
-  }, [onEditorReady, debouncedSave]);
+  }, [onEditorReady, debouncedSave, saveImmediately]);
 
   // Save on unmount instead of canceling
   useEffect(() => {
@@ -170,7 +219,7 @@ const Editor: React.FC<EditorProps> = ({
           <div className="flex-1 relative">
             <RichTextPlugin
               contentEditable={
-                <ContentEditable className="min-h-[500px] p-8 focus:outline-none prose max-w-none" />
+                <ContentEditable className="lexical-editor min-h-[500px] p-8 focus:outline-none prose max-w-none" />
               }
               placeholder={
                 <div className="absolute top-8 left-8 text-gray-400 pointer-events-none">

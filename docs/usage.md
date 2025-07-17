@@ -732,6 +732,11 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.0.9 - Simplified Citations Panel
+- Removed: "My Library" tab from Citations panel - it was unnecessary
+- Improvement: Cleaner, more focused UI for citation suggestions
+- Simplified: Citations panel now only shows suggestions
+
 ### v0.0.8 - Allow Multiple Citations
 - Fixed: Papers can now be cited multiple times in the same document
 - Changed: Insert button is always enabled, even for already cited papers

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { CitationSuggestion } from '../../types';
 
 
@@ -22,7 +22,7 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
   bibliographyPaperIds = new Set(),
   citedPaperIds = new Set()
 }) => {
-  const [activeTab, setActiveTab] = useState<'suggestions' | 'library'>('suggestions');
+  // Removed activeTab state since we only have suggestions now
 
 
   const handleInsertCitation = (citation: CitationSuggestion) => {
@@ -60,35 +60,10 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
             </button>
           </div>
         </div>
-        
-        <div className="flex border-t border-gray-200">
-          <button
-            className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'suggestions'
-                ? 'text-blue-600 border-blue-600'
-                : 'text-gray-500 border-transparent hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('suggestions')}
-          >
-            Suggestions
-          </button>
-          <button
-            className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'library'
-                ? 'text-blue-600 border-blue-600'
-                : 'text-gray-500 border-transparent hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('library')}
-          >
-            My Library
-          </button>
-        </div>
       </div>
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto p-4">
-        {activeTab === 'suggestions' ? (
-          <>
             {selectedText && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
@@ -235,16 +210,6 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
                 <p className="text-xs text-gray-400 mt-2">Powered by semantic search</p>
               </div>
             )}
-          </>
-        ) : (
-          <div className="text-center text-gray-500 mt-8">
-            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <p className="text-sm">Your library is empty</p>
-            <p className="text-xs text-gray-400 mt-2">Papers you save will appear here</p>
-          </div>
-        )}
       </div>
     </div>
   );

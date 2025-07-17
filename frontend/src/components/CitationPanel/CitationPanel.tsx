@@ -27,7 +27,7 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="citation-panel h-full flex flex-col">
       {/* Header with tabs */}
       <div className="bg-white border-b border-gray-200">
         <div className="flex items-center justify-between p-4">

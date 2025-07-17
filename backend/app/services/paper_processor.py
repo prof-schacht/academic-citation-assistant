@@ -58,7 +58,6 @@ class PaperProcessorService:
                     db,
                     LogCategory.PDF_PROCESSING,
                     f"Starting PDF processing for paper: {paper.title}",
-                    user_id=paper.user_id,
                     entity_type="paper",
                     entity_id=str(paper_id),
                     details={"file_path": file_path}
@@ -140,7 +139,6 @@ class PaperProcessorService:
                     db,
                     LogCategory.PDF_PROCESSING,
                     f"Successfully processed PDF for paper: {paper.title}",
-                    user_id=paper.user_id,
                     entity_type="paper",
                     entity_id=str(paper_id),
                     details={
@@ -156,17 +154,15 @@ class PaperProcessorService:
                 logger.error(f"Error processing paper {paper_id}: {str(e)}")
                 
                 # Log error
-                if paper:
-                    await log_async_error(
-                        db,
-                        LogCategory.PDF_PROCESSING,
-                        f"Failed to process PDF for paper: {paper.title if paper else paper_id}",
-                        e,
-                        user_id=paper.user_id if paper else None,
-                        entity_type="paper",
-                        entity_id=str(paper_id),
-                        details={"file_path": file_path}
-                    )
+                await log_async_error(
+                    db,
+                    LogCategory.PDF_PROCESSING,
+                    f"Failed to process PDF for paper: {paper.title if paper else paper_id}",
+                    e,
+                    entity_type="paper",
+                    entity_id=str(paper_id),
+                    details={"file_path": file_path, "error": str(e)}
+                )
                 
                 # Update paper with error
                 if paper:

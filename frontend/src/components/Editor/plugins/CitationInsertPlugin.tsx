@@ -93,6 +93,10 @@ export function CitationInsertPlugin({ onRegisterInsertHandler, onCitationInsert
         
         // Focus back on editor
         editor.focus();
+      }, {
+        onUpdate: () => {
+          console.log('[CitationInsertPlugin] Editor update completed for citation insertion');
+        }
       });
 
       // Notify parent that a citation was inserted

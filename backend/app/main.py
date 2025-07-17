@@ -16,6 +16,21 @@ async def lifespan(app: FastAPI):
     # Startup
     print(f"Starting {settings.app_name} v{settings.app_version}")
     
+    # Download NLTK data on startup
+    try:
+        import nltk
+        nltk.download('punkt_tab', quiet=True)
+        print("NLTK punkt_tab tokenizer downloaded")
+    except Exception as e:
+        print(f"Warning: Failed to download NLTK data: {e}")
+        # Try fallback
+        try:
+            import nltk
+            nltk.download('punkt', quiet=True)
+            print("NLTK punkt tokenizer downloaded (fallback)")
+        except:
+            print("Warning: Failed to download any NLTK tokenizer data")
+    
     # Start background PDF processor
     await background_processor.start()
     print("Background PDF processor started")

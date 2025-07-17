@@ -171,15 +171,6 @@ const DocumentEditor: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // If switching back to editor tab, reload the document to get latest content
-    if (newTab === 'editor' && activeTab !== 'editor' && document) {
-      console.log('[DocumentEditor] Switching back to editor - reloading document');
-      const updatedDoc = await loadDocument(document.id);
-      if (updatedDoc) {
-        console.log('[DocumentEditor] Document reloaded with latest content');
-      }
-    }
-    
     setActiveTab(newTab);
   };
 
@@ -337,54 +328,52 @@ const DocumentEditor: React.FC = () => {
           editorSaveRef.current();
         }
       }}>
-        {activeTab === 'editor' && (
-          <div className="h-full flex">
-            <div className={showCitationPanel ? "flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>
-              <Editor
-                documentId={document.id}
-                initialContent={document.content || undefined}
-                onSave={handleSave}
-                autoSaveDelay={2000}
-                userId="test-user"
-                onCitationSuggestionsUpdate={setCitationSuggestions}
-                onCitationConnectionChange={setCitationConnectionStatus}
-                onRegisterCitationInsert={(handler) => {
-                  insertCitationRef.current = handler;
-                }}
-                onEditorReady={(saveFunction) => {
-                  editorSaveRef.current = saveFunction;
-                }}
-                onCitationInserted={handleCitationInserted}
-              />
-            </div>
-            {showCitationPanel && (
-              <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
-                <CitationPanel 
-                  documentId={document.id} 
-                  suggestions={citationSuggestions}
-                  isConnected={citationConnectionStatus}
-                  onInsertCitation={(citation) => {
-                    if (insertCitationRef.current) {
-                      insertCitationRef.current(citation);
-                    }
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'bibliography' && (
-          <div className="h-full overflow-y-auto bg-white p-6">
-            <DocumentPapers
+        {/* Editor tab - keep mounted but hidden to preserve state */}
+        <div className={`h-full flex ${activeTab === 'editor' ? '' : 'hidden'}`}>
+          <div className={showCitationPanel ? "flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>
+            <Editor
               documentId={document.id}
-              documentTitle={document.title}
+              initialContent={document.content || undefined}
+              onSave={handleSave}
+              autoSaveDelay={2000}
+              userId="test-user"
+              onCitationSuggestionsUpdate={setCitationSuggestions}
+              onCitationConnectionChange={setCitationConnectionStatus}
+              onRegisterCitationInsert={(handler) => {
+                insertCitationRef.current = handler;
+              }}
+              onEditorReady={(saveFunction) => {
+                editorSaveRef.current = saveFunction;
+              }}
+              onCitationInserted={handleCitationInserted}
             />
           </div>
-        )}
+          {showCitationPanel && (
+            <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
+              <CitationPanel 
+                documentId={document.id} 
+                suggestions={citationSuggestions}
+                isConnected={citationConnectionStatus}
+                onInsertCitation={(citation) => {
+                  if (insertCitationRef.current) {
+                    insertCitationRef.current(citation);
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
         
-        {activeTab === 'citations' && (
-          <div className="h-full bg-gray-50 overflow-y-auto">
+        {/* Bibliography tab */}
+        <div className={`h-full overflow-y-auto bg-white p-6 ${activeTab === 'bibliography' ? '' : 'hidden'}`}>
+          <DocumentPapers
+            documentId={document.id}
+            documentTitle={document.title}
+          />
+        </div>
+        
+        {/* Citations tab */}
+        <div className={`h-full bg-gray-50 overflow-y-auto ${activeTab === 'citations' ? '' : 'hidden'}`}>
             {/* Inserted Citations Section */}
             {insertedCitations.length > 0 && (
               <div className="p-6 bg-white border-b">
@@ -418,8 +407,7 @@ const DocumentEditor: React.FC = () => {
                 }
               }}
             />
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Export Dialog */}

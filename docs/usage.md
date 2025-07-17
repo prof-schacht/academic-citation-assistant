@@ -732,6 +732,12 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.0.3 - Editor State Persistence
+- Fixed: Editor now remains mounted when switching tabs (hidden instead of unmounted)
+- Fixed: Content is preserved in editor memory when navigating between tabs
+- Fixed: No need to reload content from server when switching back to editor
+- Improvement: Better performance as editor doesn't need to reinitialize
+
 ### v0.0.2 - Enhanced Save Mechanisms
 - Fixed: Added multiple save triggers to prevent data loss
   - Immediate save when clicking outside the editor

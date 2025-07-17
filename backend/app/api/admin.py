@@ -31,6 +31,17 @@ class CleanDocumentsResponse(BaseModel):
     document_papers_deleted: int
 
 
+class CleanPapersRequest(BaseModel):
+    """Request to clean all papers."""
+    confirmation: str  # Must be "DELETE ALL"
+
+
+class CleanPapersResponse(BaseModel):
+    """Response after cleaning papers."""
+    papers_deleted: int
+    chunks_deleted: int
+
+
 @router.post("/clean-documents", response_model=CleanDocumentsResponse)
 async def clean_all_documents(
     request: CleanDocumentsRequest,
@@ -51,3 +62,25 @@ async def clean_all_documents(
     result = await AdminService.clean_all_documents(db)
     
     return CleanDocumentsResponse(**result)
+
+
+@router.post("/clean-papers", response_model=CleanPapersResponse)
+async def clean_all_papers(
+    request: CleanPapersRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """Delete all papers from the database (admin only)."""
+    # Verify confirmation text
+    if request.confirmation != "DELETE ALL":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid confirmation. Please type 'DELETE ALL' to confirm.",
+        )
+    
+    # In production, check if user is admin
+    # For now, we'll allow any authenticated user
+    
+    result = await AdminService.clean_all_papers(db)
+    
+    return CleanPapersResponse(**result)

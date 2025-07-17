@@ -26,6 +26,14 @@ sleep 10
 echo "📊 Running database migrations..."
 docker-compose exec backend alembic upgrade head
 
+# Create test user
+echo "👤 Creating test user..."
+docker-compose exec backend python scripts/create_test_user_simple.py
+
+# Download NLTK data
+echo "📦 Downloading NLTK data..."
+docker-compose exec backend python scripts/download_nltk_data.py
+
 # Populate test data
 echo "📚 Populating test papers..."
 docker-compose exec backend python scripts/populate_test_papers_v2.py

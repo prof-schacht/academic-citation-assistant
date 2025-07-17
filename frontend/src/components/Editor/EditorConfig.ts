@@ -5,6 +5,7 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { CodeNode, CodeHighlightNode } from '@lexical/code';
 import { AutoLinkNode, LinkNode } from '@lexical/link';
 import { TableNode, TableCellNode, TableRowNode } from '@lexical/table';
+import { CitationNode } from './nodes/CitationNode';
 
 const theme = {
   paragraph: 'mb-4',
@@ -50,6 +51,7 @@ const editorConfig: InitialConfigType = {
     TableCellNode,
     TableRowNode,
     HorizontalRuleNode,
+    CitationNode,
   ],
 };
 

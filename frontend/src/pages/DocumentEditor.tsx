@@ -79,6 +79,12 @@ const DocumentEditor: React.FC = () => {
       setIsLoading(true);
       const doc = await documentService.getById(docId);
       setDocument(doc);
+      
+      // Parse document content to find cited papers
+      if (doc.content) {
+        parseCitationsFromContent(doc.content);
+      }
+      
       return doc;
     } catch (err) {
       setError('Failed to load document');
@@ -97,6 +103,45 @@ const DocumentEditor: React.FC = () => {
       console.log('Loaded bibliography papers:', paperIds.size);
     } catch (err) {
       console.error('Failed to load bibliography papers:', err);
+    }
+  };
+
+  const parseCitationsFromContent = (content: any) => {
+    try {
+      const contentObj = typeof content === 'string' ? JSON.parse(content) : content;
+      const citations: CitationSuggestion[] = [];
+      
+      // Recursive function to find all citation nodes
+      const findCitationNodes = (node: any) => {
+        if (node.type === 'citation') {
+          // This is a citation node
+          citations.push({
+            paperId: node.paperId,
+            title: node.title || '',
+            authors: node.authors || [],
+            year: node.year,
+            abstract: '',
+            confidence: 1.0,
+            citationStyle: 'inline' as const,
+            displayText: node.citationKey || ''
+          });
+        }
+        
+        // Check children nodes
+        if (node.children && Array.isArray(node.children)) {
+          node.children.forEach(findCitationNodes);
+        }
+      };
+      
+      // Start parsing from root
+      if (contentObj.root && contentObj.root.children) {
+        contentObj.root.children.forEach(findCitationNodes);
+      }
+      
+      console.log('[DocumentEditor] Found citations in document:', citations.length);
+      setInsertedCitations(citations);
+    } catch (err) {
+      console.error('Failed to parse citations from content:', err);
     }
   };
 

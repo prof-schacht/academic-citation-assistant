@@ -732,6 +732,12 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.1.0 - Citation Badge Persistence
+- Fixed: "Cited" badges now persist when document is closed and reopened
+- Added: Document content parsing to identify cited papers on load
+- Improvement: Citation tracking is restored from document content
+- Technical: Parses Lexical editor state to find citation nodes
+
 ### v0.0.9 - Simplified Citations Panel
 - Removed: "My Library" tab from Citations panel - it was unnecessary
 - Improvement: Cleaner, more focused UI for citation suggestions

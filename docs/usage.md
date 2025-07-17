@@ -732,6 +732,17 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.0.8 - Allow Multiple Citations
+- Fixed: Papers can now be cited multiple times in the same document
+- Changed: Insert button is always enabled, even for already cited papers
+- Improvement: Academic papers often need to be cited multiple times throughout a document
+
+### v0.0.7 - Fixed Citation Badge Display
+- Fixed: Both "In Library" and "Cited" badges now show when appropriate
+- Fixed: Papers can show both badges if they are in bibliography AND cited
+- Added: Debug logging to help track citation state
+- Improvement: Badge display logic is clearer and more reliable
+
 ### v0.0.6 - Bibliography State Synchronization
 - Fixed: Bibliography papers are reloaded when switching from Bibliography tab to catch deletions
 - Fixed: "In Library" badges now correctly disappear when papers are removed from bibliography

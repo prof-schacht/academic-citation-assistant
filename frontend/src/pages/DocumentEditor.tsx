@@ -37,6 +37,7 @@ const DocumentEditor: React.FC = () => {
   useEffect(() => {
     const paperIds = new Set(insertedCitations.map(c => c.paperId));
     setCitedPaperIds(paperIds);
+    console.log('[DocumentEditor] Updated citedPaperIds:', Array.from(paperIds));
   }, [insertedCitations]);
 
   useEffect(() => {
@@ -205,12 +206,16 @@ const DocumentEditor: React.FC = () => {
   const handleCitationInserted = async (citation: CitationSuggestion) => {
     if (!document) return;
 
+    console.log('[DocumentEditor] Citation inserted:', citation.paperId, citation.title);
+
     // Add to inserted citations list if not already there
     setInsertedCitations(prev => {
       const exists = prev.some(c => c.paperId === citation.paperId);
       if (!exists) {
+        console.log('[DocumentEditor] Adding to insertedCitations:', citation.paperId);
         return [...prev, citation];
       }
+      console.log('[DocumentEditor] Citation already in insertedCitations:', citation.paperId);
       return prev;
     });
 

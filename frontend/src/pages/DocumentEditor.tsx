@@ -5,6 +5,7 @@ import CitationPanel from '../components/CitationPanel/CitationPanel';
 import DocumentPapers from '../components/DocumentPapersSimple';
 import ExportDialog from '../components/ExportDialog';
 import { documentService } from '../services/documentService';
+import { documentPaperService } from '../services/documentPaperService';
 import type { DocumentType } from '../services/documentService';
 import type { EditorState } from 'lexical';
 import type { CitationSuggestion } from '../services/websocketService';
@@ -24,8 +25,10 @@ const DocumentEditor: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'editor' | 'bibliography' | 'citations'>('editor');
   const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion[]>([]);
   const [citationConnectionStatus, setCitationConnectionStatus] = useState(false);
+  const [insertedCitations, setInsertedCitations] = useState<CitationSuggestion[]>([]);
   const editorStateRef = useRef<EditorState | null>(null);
   const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
+  const editorSaveRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -156,6 +159,48 @@ const DocumentEditor: React.FC = () => {
     }
   };
 
+  const handleTabChange = (newTab: 'editor' | 'bibliography' | 'citations') => {
+    // Save current editor content before switching tabs
+    if (activeTab === 'editor' && editorSaveRef.current) {
+      editorSaveRef.current();
+    }
+    setActiveTab(newTab);
+  };
+
+  const handleCitationInserted = async (citation: CitationSuggestion) => {
+    if (!document) return;
+
+    // Add to inserted citations list if not already there
+    setInsertedCitations(prev => {
+      const exists = prev.some(c => c.paperId === citation.paperId);
+      if (!exists) {
+        return [...prev, citation];
+      }
+      return prev;
+    });
+
+    // Auto-add to bibliography
+    try {
+      await documentPaperService.assignPaper(document.id, {
+        paper_id: citation.paperId,
+        notes: `Cited in document`,
+      });
+      console.log('Paper added to bibliography:', citation.title);
+    } catch (error) {
+      // Paper might already be in bibliography, which is fine
+      console.log('Paper already in bibliography or error adding:', error);
+    }
+
+    // Force a save after citation insertion to ensure the document is saved
+    // This is necessary because programmatic citation insertion might not trigger onChange
+    if (editorSaveRef.current) {
+      console.log('Triggering save after citation insertion');
+      setTimeout(() => {
+        editorSaveRef.current?.();
+      }, 100); // Small delay to ensure the editor state is updated
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -227,7 +272,7 @@ const DocumentEditor: React.FC = () => {
       <div className="border-b border-gray-200 bg-white">
         <nav className="flex space-x-8 px-6" aria-label="Tabs">
           <button
-            onClick={() => setActiveTab('editor')}
+            onClick={() => handleTabChange('editor')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'editor'
                 ? 'border-blue-500 text-blue-600'
@@ -237,7 +282,7 @@ const DocumentEditor: React.FC = () => {
             Editor
           </button>
           <button
-            onClick={() => setActiveTab('bibliography')}
+            onClick={() => handleTabChange('bibliography')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'bibliography'
                 ? 'border-blue-500 text-blue-600'
@@ -247,7 +292,7 @@ const DocumentEditor: React.FC = () => {
             Bibliography
           </button>
           <button
-            onClick={() => setActiveTab('citations')}
+            onClick={() => handleTabChange('citations')}
             className={`py-2 px-1 border-b-2 font-medium text-sm relative ${
               activeTab === 'citations'
                 ? 'border-blue-500 text-blue-600'
@@ -280,6 +325,10 @@ const DocumentEditor: React.FC = () => {
                 onRegisterCitationInsert={(handler) => {
                   insertCitationRef.current = handler;
                 }}
+                onEditorReady={(saveFunction) => {
+                  editorSaveRef.current = saveFunction;
+                }}
+                onCitationInserted={handleCitationInserted}
               />
             </div>
             {showCitationPanel && (
@@ -309,7 +358,28 @@ const DocumentEditor: React.FC = () => {
         )}
         
         {activeTab === 'citations' && (
-          <div className="h-full bg-gray-50 overflow-hidden">
+          <div className="h-full bg-gray-50 overflow-y-auto">
+            {/* Inserted Citations Section */}
+            {insertedCitations.length > 0 && (
+              <div className="p-6 bg-white border-b">
+                <h3 className="text-lg font-semibold mb-4">Citations in Document</h3>
+                <div className="space-y-3">
+                  {insertedCitations.map((citation, index) => (
+                    <div key={`${citation.paperId}-${index}`} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="font-medium text-gray-900">{citation.title}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {citation.authors?.join(', ')} {citation.year && `(${citation.year})`}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Added to bibliography ✓
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Suggestions Section */}
             <CitationPanel 
               documentId={document.id} 
               suggestions={citationSuggestions}

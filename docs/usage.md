@@ -2,6 +2,21 @@
 
 ## Recent Updates (July 17, 2025)
 
+### Bug Fix: Citation Auto-Save (v0.0.1) 🔧
+Fixed an issue where documents wouldn't auto-save after inserting citations:
+
+#### Issue
+- After inserting a citation using the citation panel, the document would not automatically save
+- Users had to type additional text for the save to trigger
+- This was due to programmatic citation insertion not triggering the onChange event
+
+#### Solution
+- Added manual save trigger after citation insertion
+- Documents now save automatically 100ms after a citation is inserted
+- Normal typing behavior and auto-save remain unchanged
+
+## Previous Updates (July 17, 2025)
+
 ### NEW: Bulk Document Management (v1.3.0) 🗑️
 Enhanced document management capabilities for better productivity:
 
@@ -344,18 +359,30 @@ The application uses the following API configuration:
 
 2. Start all services:
    ```bash
-   docker-compose up
+   docker-compose up -d
    ```
 
-3. Access the application:
+3. **IMPORTANT**: Run database migrations (required for fresh installations):
+   ```bash
+   docker-compose exec backend alembic upgrade head
+   ```
+
+4. Create test user (required for document operations):
+   ```bash
+   docker-compose exec backend python scripts/create_test_user_simple.py
+   ```
+
+5. Access the application:
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
-4. Populate test papers (for citation suggestions):
+6. Populate test papers (for citation suggestions):
    ```bash
    docker-compose exec backend python scripts/populate_test_papers_v2.py
    ```
+
+**Note**: If you encounter "relation 'documents' does not exist" errors, ensure you've run the database migrations in step 3. If you get "foreign key constraint" errors when creating documents, ensure you've created the test user in step 4.
 
 ## Using the Application
 
@@ -585,13 +612,21 @@ ws://localhost:8000/ws/citations?user_id={user_id}
 
 ### Common Issues
 
-1. **Port conflicts**:
+1. **Database errors on fresh installation**:
+   - Error: "relation 'documents' does not exist"
+   - Solution: Run database migrations
+   ```bash
+   docker-compose exec backend alembic upgrade head
+   ```
+   - This creates all necessary database tables
+
+2. **Port conflicts**:
    - Frontend default: 3000
    - Backend default: 8000
    - PostgreSQL: 5432
    - Redis: 6379
 
-2. **Docker build fails**:
+3. **Docker build fails**:
    ```bash
    docker-compose build --no-cache
    ```

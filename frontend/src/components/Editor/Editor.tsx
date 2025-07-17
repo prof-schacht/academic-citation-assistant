@@ -36,6 +36,8 @@ interface EditorProps {
   onCitationSuggestionsUpdate?: (suggestions: CitationSuggestion[]) => void;
   onCitationConnectionChange?: (connected: boolean) => void;
   onRegisterCitationInsert?: (handler: (citation: CitationSuggestion) => void) => void;
+  onEditorReady?: (saveFunction: () => void) => void;
+  onCitationInserted?: (citation: CitationSuggestion) => void;
 }
 
 // Plugin to load initial content
@@ -95,6 +97,8 @@ const Editor: React.FC<EditorProps> = ({
   onCitationSuggestionsUpdate,
   onCitationConnectionChange,
   onRegisterCitationInsert,
+  onEditorReady,
+  onCitationInserted,
 }) => {
   // const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -128,6 +132,8 @@ const Editor: React.FC<EditorProps> = ({
   );
 
   const handleChange = useCallback((editorState: EditorState) => {
+    console.log('[Editor] onChange triggered, hasContentChanged:', hasContentChanged);
+    
     // Only start auto-saving after the user has made changes
     if (!hasContentChanged) {
       setHasContentChanged(true);
@@ -135,14 +141,23 @@ const Editor: React.FC<EditorProps> = ({
     
     // Only auto-save if we have a document ID and content has been changed
     if (documentId && hasContentChanged) {
+      console.log('[Editor] Triggering auto-save');
       debouncedSave(editorState);
     }
   }, [documentId, hasContentChanged, debouncedSave]);
 
-  // Cleanup on unmount
+  // Expose save function to parent
+  useEffect(() => {
+    if (onEditorReady) {
+      onEditorReady(() => debouncedSave.flush());
+    }
+  }, [onEditorReady, debouncedSave]);
+
+  // Save on unmount instead of canceling
   useEffect(() => {
     return () => {
-      debouncedSave.cancel();
+      // Flush any pending saves when component unmounts
+      debouncedSave.flush();
     };
   }, [debouncedSave]);
 
@@ -208,6 +223,7 @@ const Editor: React.FC<EditorProps> = ({
             {onRegisterCitationInsert && (
               <CitationInsertPlugin
                 onRegisterInsertHandler={onRegisterCitationInsert}
+                onCitationInserted={onCitationInserted}
               />
             )}
           </div>

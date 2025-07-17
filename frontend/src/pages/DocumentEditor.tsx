@@ -26,6 +26,7 @@ const DocumentEditor: React.FC = () => {
   const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion[]>([]);
   const [citationConnectionStatus, setCitationConnectionStatus] = useState(false);
   const [insertedCitations, setInsertedCitations] = useState<CitationSuggestion[]>([]);
+  const [bibliographyKey, setBibliographyKey] = useState(0); // Force refresh of bibliography
   const editorStateRef = useRef<EditorState | null>(null);
   const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
@@ -193,6 +194,8 @@ const DocumentEditor: React.FC = () => {
         notes: `Cited in document`,
       });
       console.log('Paper added to bibliography:', citation.title);
+      // Force bibliography refresh
+      setBibliographyKey(prev => prev + 1);
     } catch (error) {
       // Paper might already be in bibliography, which is fine
       console.log('Paper already in bibliography or error adding:', error);
@@ -367,6 +370,7 @@ const DocumentEditor: React.FC = () => {
         {/* Bibliography tab */}
         <div className={`h-full overflow-y-auto bg-white p-6 ${activeTab === 'bibliography' ? '' : 'hidden'}`}>
           <DocumentPapers
+            key={bibliographyKey}
             documentId={document.id}
             documentTitle={document.title}
           />

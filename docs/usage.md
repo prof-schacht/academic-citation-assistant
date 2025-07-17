@@ -732,6 +732,11 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.0.4 - Bibliography Auto-Refresh
+- Fixed: Bibliography now automatically refreshes when new citations are added
+- Fixed: Multiple citations properly appear in bibliography without manual refresh
+- Improvement: Bibliography component remounts with updated data when citations are inserted
+
 ### v0.0.3 - Editor State Persistence
 - Fixed: Editor now remains mounted when switching tabs (hidden instead of unmounted)
 - Fixed: Content is preserved in editor memory when navigating between tabs

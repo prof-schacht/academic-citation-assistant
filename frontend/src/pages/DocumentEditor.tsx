@@ -27,9 +27,17 @@ const DocumentEditor: React.FC = () => {
   const [citationConnectionStatus, setCitationConnectionStatus] = useState(false);
   const [insertedCitations, setInsertedCitations] = useState<CitationSuggestion[]>([]);
   const [bibliographyKey, setBibliographyKey] = useState(0); // Force refresh of bibliography
+  const [bibliographyPaperIds, setBibliographyPaperIds] = useState<Set<string>>(new Set());
+  const [citedPaperIds, setCitedPaperIds] = useState<Set<string>>(new Set());
   const editorStateRef = useRef<EditorState | null>(null);
   const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
+
+  // Update citedPaperIds whenever insertedCitations changes
+  useEffect(() => {
+    const paperIds = new Set(insertedCitations.map(c => c.paperId));
+    setCitedPaperIds(paperIds);
+  }, [insertedCitations]);
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +49,7 @@ const DocumentEditor: React.FC = () => {
       
       if (id) {
         await loadDocument(id);
+        await loadBibliographyPapers(id);
       } else {
         // Small delay to ensure single execution
         const timeoutId = setTimeout(() => {
@@ -76,6 +85,17 @@ const DocumentEditor: React.FC = () => {
       return null;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadBibliographyPapers = async (docId: string) => {
+    try {
+      const papers = await documentPaperService.getDocumentPapers(docId);
+      const paperIds = new Set(papers.map(p => p.paper_id));
+      setBibliographyPaperIds(paperIds);
+      console.log('Loaded bibliography papers:', paperIds.size);
+    } catch (err) {
+      console.error('Failed to load bibliography papers:', err);
     }
   };
 
@@ -172,6 +192,13 @@ const DocumentEditor: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
+    // When switching back from bibliography, reload bibliography papers
+    // to catch any deletions that might have occurred
+    if (activeTab === 'bibliography' && newTab !== 'bibliography' && document) {
+      console.log('[DocumentEditor] Reloading bibliography papers after leaving bibliography tab');
+      await loadBibliographyPapers(document.id);
+    }
+    
     setActiveTab(newTab);
   };
 
@@ -196,6 +223,8 @@ const DocumentEditor: React.FC = () => {
       console.log('Paper added to bibliography:', citation.title);
       // Force bibliography refresh
       setBibliographyKey(prev => prev + 1);
+      // Add to bibliography set
+      setBibliographyPaperIds(prev => new Set([...prev, citation.paperId]));
     } catch (error) {
       // Paper might already be in bibliography, which is fine
       console.log('Paper already in bibliography or error adding:', error);
@@ -208,6 +237,24 @@ const DocumentEditor: React.FC = () => {
       setTimeout(() => {
         editorSaveRef.current?.();
       }, 100); // Small delay to ensure the editor state is updated
+    }
+  };
+
+  const handleAddToLibrary = async (citation: CitationSuggestion) => {
+    if (!document) return;
+
+    try {
+      await documentPaperService.assignPaper(document.id, {
+        paper_id: citation.paperId,
+        notes: `Added to bibliography`,
+      });
+      console.log('Paper added to bibliography:', citation.title);
+      // Force bibliography refresh
+      setBibliographyKey(prev => prev + 1);
+      // Add to bibliography set
+      setBibliographyPaperIds(prev => new Set([...prev, citation.paperId]));
+    } catch (error) {
+      console.error('Failed to add paper to bibliography:', error);
     }
   };
 
@@ -362,6 +409,9 @@ const DocumentEditor: React.FC = () => {
                     insertCitationRef.current(citation);
                   }
                 }}
+                onAddToLibrary={handleAddToLibrary}
+                bibliographyPaperIds={bibliographyPaperIds}
+                citedPaperIds={citedPaperIds}
               />
             </div>
           )}
@@ -410,6 +460,9 @@ const DocumentEditor: React.FC = () => {
                   setActiveTab('editor');
                 }
               }}
+              onAddToLibrary={handleAddToLibrary}
+              bibliographyPaperIds={bibliographyPaperIds}
+              citedPaperIds={citedPaperIds}
             />
         </div>
       </div>

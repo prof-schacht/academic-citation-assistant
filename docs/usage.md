@@ -732,6 +732,21 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.0.6 - Bibliography State Synchronization
+- Fixed: Bibliography papers are reloaded when switching from Bibliography tab to catch deletions
+- Fixed: "In Library" badges now correctly disappear when papers are removed from bibliography
+- Fixed: Citation status tracking is more robust and updates properly
+- Improvement: Better state management for bibliography and cited papers
+
+### v0.0.5 - Citation Status Badges and Add to Library
+- Added: "Add to Library" button functionality to add papers directly to bibliography
+- Added: Visual badges showing citation status:
+  - "Cited" badge (blue) for papers already cited in the document
+  - "In Library" badge (green) for papers in the bibliography but not cited
+- Added: Buttons are disabled with appropriate text when action is already completed
+- Added: Bibliography and cited papers are tracked across the application
+- Improvement: All paper chunks show the same status badges when a paper is cited/added
+
 ### v0.0.4 - Bibliography Auto-Refresh
 - Fixed: Bibliography now automatically refreshes when new citations are added
 - Fixed: Multiple citations properly appear in bibliography without manual refresh

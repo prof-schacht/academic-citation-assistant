@@ -8,9 +8,20 @@ interface CitationPanelProps {
   suggestions?: CitationSuggestion[];
   isConnected?: boolean;
   onInsertCitation?: (citation: CitationSuggestion) => void;
+  onAddToLibrary?: (citation: CitationSuggestion) => void;
+  bibliographyPaperIds?: Set<string>;
+  citedPaperIds?: Set<string>;
 }
 
-const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions = [], isConnected = false, onInsertCitation }) => {
+const CitationPanel: React.FC<CitationPanelProps> = ({ 
+  selectedText, 
+  suggestions = [], 
+  isConnected = false, 
+  onInsertCitation,
+  onAddToLibrary,
+  bibliographyPaperIds = new Set(),
+  citedPaperIds = new Set()
+}) => {
   const [activeTab, setActiveTab] = useState<'suggestions' | 'library'>('suggestions');
 
 
@@ -23,7 +34,9 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions
 
   const handleAddToLibrary = (citation: CitationSuggestion) => {
     console.log('Adding to library:', citation);
-    // TODO: Implement adding to library
+    if (onAddToLibrary) {
+      onAddToLibrary(citation);
+    }
   };
 
   return (
@@ -98,16 +111,41 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions
               </div>
             ) : suggestions.length > 0 ? (
               <div className="space-y-3">
-                {suggestions.map((citation, index) => (
-                  <div
-                    key={citation.chunkId || `${citation.paperId}-${index}`}
-                    className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 text-sm mb-1">
-                          {citation.title}
-                        </h4>
+                {suggestions.map((citation, index) => {
+                  const isInBibliography = bibliographyPaperIds.has(citation.paperId);
+                  const isCited = citedPaperIds.has(citation.paperId);
+                  
+                  return (
+                    <div
+                      key={citation.chunkId || `${citation.paperId}-${index}`}
+                      className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-start gap-2">
+                            <h4 className="font-medium text-gray-900 text-sm mb-1 flex-1">
+                              {citation.title}
+                            </h4>
+                            <div className="flex gap-1">
+                              {isCited && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800" title="Cited in document">
+                                  <svg className="w-3 h-3 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  Cited
+                                </span>
+                              )}
+                              {isInBibliography && !isCited && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="In bibliography">
+                                  <svg className="w-3 h-3 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-1a1 1 0 100-2h1a4 4 0 014 4v6a4 4 0 01-4 4H6a4 4 0 01-4-4V7a4 4 0 014-4z" clipRule="evenodd" />
+                                  </svg>
+                                  In Library
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         <p className="text-xs text-gray-600 mb-2">
                           {citation.authors && citation.authors.length > 0 
                             ? citation.authors.join(', ') 
@@ -153,15 +191,25 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions
                     <div className="mt-3 flex items-center space-x-2">
                       <button
                         onClick={() => handleInsertCitation(citation)}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                        disabled={isCited}
+                        className={`px-3 py-1 text-xs rounded transition ${
+                          isCited 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
                       >
-                        Insert
+                        {isCited ? 'Already Cited' : 'Insert'}
                       </button>
                       <button
                         onClick={() => handleAddToLibrary(citation)}
-                        className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+                        disabled={isInBibliography}
+                        className={`px-3 py-1 text-xs rounded transition ${
+                          isInBibliography 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
                       >
-                        Add to Library
+                        {isInBibliography ? 'In Library' : 'Add to Library'}
                       </button>
                       <button
                         className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 transition"
@@ -170,7 +218,8 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center text-gray-500 mt-8">

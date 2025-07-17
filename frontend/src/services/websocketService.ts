@@ -3,38 +3,9 @@
  */
 
 import type { EditorState } from 'lexical';
+import type { TextContext, CitationSuggestion, WSMessage } from '../types';
 
-export interface TextContext {
-  currentSentence: string;
-  previousSentence?: string;
-  nextSentence?: string;
-  paragraph: string;
-  section?: string;
-  cursorPosition: number;
-}
-
-export interface CitationSuggestion {
-  paperId: string;
-  title: string;
-  authors: string[];
-  year: number;
-  abstract: string;
-  confidence: number;
-  citationStyle: 'inline' | 'footnote';
-  displayText: string;
-  chunkText?: string;
-  chunkIndex?: number;
-  chunkId?: string;
-  sectionTitle?: string;
-}
-
-export interface WSMessage {
-  type: 'suggest' | 'suggestions' | 'error' | 'ping' | 'pong';
-  text?: string;
-  context?: TextContext;
-  results?: CitationSuggestion[];
-  message?: string;
-}
+export type { TextContext, CitationSuggestion, WSMessage };
 
 export class CitationWebSocketClient {
   private socket: WebSocket | null = null;
@@ -239,15 +210,19 @@ export class CitationWebSocketClient {
     // Updated pattern to better handle sentence boundaries including questions
     // This pattern captures text ending with punctuation OR line breaks
     const sentencePattern = /[^.!?\n]+[.!?]+\s*|[^.!?\n]+(?=\n|$)/g;
-    const sentences = textContent.match(sentencePattern) || [];
+    let sentences: string[] = [];
+    const matches = textContent.match(sentencePattern);
+    if (matches) {
+      sentences = matches;
+    }
     
     // If no sentences found with punctuation, split by newlines
     if (sentences.length === 0 && textContent.trim().length > 0) {
       const lines = textContent.split('\n').filter(line => line.trim());
       if (lines.length > 0) {
-        sentences.push(...lines);
+        sentences = lines;
       } else {
-        sentences.push(textContent);
+        sentences = [textContent];
       }
     }
     

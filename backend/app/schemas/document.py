@@ -1,5 +1,5 @@
 """Document schemas."""
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
 
@@ -54,3 +54,14 @@ class DocumentList(BaseModel):
     page: int
     pages: int
     limit: int
+
+
+class BulkDeleteRequest(BaseModel):
+    """Schema for bulk delete request."""
+    document_ids: List[uuid.UUID] = Field(..., min_items=1)
+
+
+class BulkDeleteResponse(BaseModel):
+    """Schema for bulk delete response."""
+    deleted_count: int
+    requested_count: int

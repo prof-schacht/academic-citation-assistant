@@ -4,8 +4,8 @@
 
 import { useEffect } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getSelection, $createTextNode, $insertNodes, $createParagraphNode } from 'lexical';
-import type { CitationSuggestion } from '../../../services/websocketService';
+import { $getSelection, $createTextNode, $insertNodes, $createParagraphNode, $getRoot } from 'lexical';
+import type { CitationSuggestion } from '../../../types';
 
 interface CitationInsertPluginProps {
   onRegisterInsertHandler?: (handler: (citation: CitationSuggestion) => void) => void;
@@ -55,12 +55,10 @@ export function CitationInsertPlugin({ onRegisterInsertHandler }: CitationInsert
           $insertNodes([citationNode]);
         } else {
           // No selection, append to the end
-          const root = editor.getEditorState().read(() => editor.getRootElement());
-          if (root) {
-            const paragraph = $createParagraphNode();
-            paragraph.append(citationNode);
-            root.append(paragraph);
-          }
+          const root = $getRoot();
+          const paragraph = $createParagraphNode();
+          paragraph.append(citationNode);
+          root.append(paragraph);
         }
         
         // Focus back on editor

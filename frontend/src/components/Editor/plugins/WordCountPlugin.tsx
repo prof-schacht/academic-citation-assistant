@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, $isTextNode } from 'lexical';
+import { $getRoot } from 'lexical';
 
 interface WordCountPluginProps {
   onWordCountChange: (wordCount: number, charCount: number) => void;

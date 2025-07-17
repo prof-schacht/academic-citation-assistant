@@ -6,7 +6,7 @@ import secrets
 import json
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 
 from app.models.document import Document
@@ -189,6 +189,32 @@ class DocumentService:
         await db.commit()
         
         return True
+    
+    @staticmethod
+    async def bulk_delete_documents(
+        db: AsyncSession,
+        document_ids: List[uuid.UUID],
+        user_id: uuid.UUID
+    ) -> int:
+        """Delete multiple documents at once."""
+        # Get all documents that belong to the user
+        query = select(Document).where(
+            and_(
+                Document.id.in_(document_ids),
+                Document.owner_id == user_id
+            )
+        )
+        result = await db.execute(query)
+        documents = result.scalars().all()
+        
+        deleted_count = 0
+        for document in documents:
+            await db.delete(document)
+            deleted_count += 1
+        
+        await db.commit()
+        
+        return deleted_count
     
     @staticmethod
     def _extract_plain_text(content: dict) -> str:

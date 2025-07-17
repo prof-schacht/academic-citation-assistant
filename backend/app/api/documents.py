@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.schemas.document import (
-    Document, DocumentCreate, DocumentUpdate, DocumentList
+    Document, DocumentCreate, DocumentUpdate, DocumentList, BulkDeleteRequest, BulkDeleteResponse
 )
 from app.services.document import DocumentService
 from app.services.export_service import ExportService
@@ -154,6 +154,29 @@ async def delete_document(
         )
     
     return None
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteResponse)
+async def bulk_delete_documents(
+    request: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """Delete multiple documents at once."""
+    if not request.document_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No document IDs provided",
+        )
+    
+    deleted_count = await DocumentService.bulk_delete_documents(
+        db, request.document_ids, user_id
+    )
+    
+    return BulkDeleteResponse(
+        deleted_count=deleted_count,
+        requested_count=len(request.document_ids),
+    )
 
 
 @router.get("/{document_id}/export/bibtex", response_class=PlainTextResponse)

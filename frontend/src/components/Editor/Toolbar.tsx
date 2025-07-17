@@ -164,7 +164,7 @@ const Toolbar: React.FC = () => {
         ―
       </button>
       <button
-        onClick={() => editor.dispatchCommand(INSERT_TABLE_COMMAND, { rows: 3, columns: 3 })}
+        onClick={() => editor.dispatchCommand(INSERT_TABLE_COMMAND, { rows: '3', columns: '3' })}
         className="p-2 hover:bg-gray-100 rounded"
         title="Insert Table"
       >

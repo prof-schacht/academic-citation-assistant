@@ -1,4 +1,4 @@
-import React from 'react';
+// React import not needed in React 17+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import DocumentsList from './pages/DocumentsList';

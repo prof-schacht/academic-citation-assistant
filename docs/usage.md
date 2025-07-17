@@ -1,5 +1,25 @@
 # Usage Guide - Academic Citation Assistant
 
+## Recent Updates (July 17, 2025)
+
+### NEW: Bulk Document Management (v1.3.0) 🗑️
+Enhanced document management capabilities for better productivity:
+
+#### Multi-Document Deletion
+- **Select Multiple Documents**: Click checkboxes on document cards to select multiple documents
+- **Visual Feedback**: Selected documents are highlighted with a blue border and overlay
+- **Bulk Action Bar**: Floating toolbar appears at the bottom when documents are selected
+- **Select All**: Quick button to select/deselect all visible documents
+- **Delete Selected**: Remove multiple documents with a single action
+
+#### Database Cleaning (Testing Only)
+For testing and development purposes:
+- **Access**: Paper Library → Settings (⚙️) → Database Management tab
+- **Clean All Documents**: Remove ALL documents from ALL users
+- **Safety**: Requires typing "DELETE ALL" to confirm
+- **Preservation**: User accounts and paper library remain intact
+- **Scope**: Only deletes documents, citations, and document-paper associations
+
 ## Recent Updates (July 16, 2025)
 
 ### NEW: Document-Centric Workflow 🎯
@@ -658,4 +678,4 @@ ws://localhost:8000/ws/citations?user_id={user_id}
 
 ---
 
-Last updated: 2025-07-15
+Last updated: 2025-07-17

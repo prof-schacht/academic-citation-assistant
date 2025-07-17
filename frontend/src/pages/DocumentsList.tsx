@@ -12,6 +12,8 @@ const DocumentsList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const navigationLock = useRef(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadDocuments();
@@ -58,9 +60,59 @@ const DocumentsList: React.FC = () => {
       try {
         await documentService.delete(id);
         setDocuments(documents.filter(doc => doc.id !== id));
+        setSelectedDocuments(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
       } catch (err) {
         console.error('Failed to delete document:', err);
       }
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedCount = selectedDocuments.size;
+    if (selectedCount === 0) return;
+
+    if (confirm(`Are you sure you want to delete ${selectedCount} document${selectedCount > 1 ? 's' : ''}?`)) {
+      try {
+        setIsDeleting(true);
+        const response = await documentService.bulkDelete(Array.from(selectedDocuments));
+        
+        // Remove deleted documents from the list
+        setDocuments(documents.filter(doc => !selectedDocuments.has(doc.id)));
+        setSelectedDocuments(new Set());
+        
+        if (response.deleted_count < response.requested_count) {
+          alert(`Successfully deleted ${response.deleted_count} out of ${response.requested_count} documents.`);
+        }
+      } catch (err) {
+        console.error('Failed to delete documents:', err);
+        alert('Failed to delete documents. Please try again.');
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
+
+  const toggleSelectDocument = (id: string) => {
+    setSelectedDocuments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    if (selectedDocuments.size === documents.length) {
+      setSelectedDocuments(new Set());
+    } else {
+      setSelectedDocuments(new Set(documents.map(doc => doc.id)));
     }
   };
 
@@ -97,6 +149,14 @@ const DocumentsList: React.FC = () => {
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">My Documents</h1>
             <div className="flex items-center space-x-4">
+              {selectedDocuments.size > 0 && (
+                <button
+                  onClick={selectAll}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                >
+                  {selectedDocuments.size === documents.length ? 'Deselect All' : 'Select All'}
+                </button>
+              )}
               <button
                 onClick={() => navigate('/library')}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
@@ -189,11 +249,31 @@ const DocumentsList: React.FC = () => {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden"
-              >
+            {documents.map((doc) => {
+              const isSelected = selectedDocuments.has(doc.id);
+              return (
+                <div
+                  key={doc.id}
+                  className={`bg-white rounded-lg shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden relative ${
+                    isSelected ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                >
+                  {/* Selection overlay */}
+                  <div className="absolute top-3 right-3 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        toggleSelectDocument(doc.id);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-5 h-5 cursor-pointer"
+                    />
+                  </div>
+                  {isSelected && (
+                    <div className="absolute inset-0 bg-blue-500 bg-opacity-10 pointer-events-none" />
+                  )}
                 <div
                   onClick={() => navigate(`/editor/${doc.id}`)}
                   className="p-6"
@@ -236,11 +316,34 @@ const DocumentsList: React.FC = () => {
                     Delete
                   </button>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </main>
+      
+      {/* Bulk action bar */}
+      {selectedDocuments.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg border border-gray-200 px-6 py-3 flex items-center space-x-4">
+          <span className="text-gray-700">
+            {selectedDocuments.size} document{selectedDocuments.size > 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={isDeleting}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:bg-red-400 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete Selected'}
+          </button>
+          <button
+            onClick={() => setSelectedDocuments(new Set())}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
       
       {/* Version info for debugging */}
       <div className="fixed bottom-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">

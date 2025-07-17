@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FileUpload from '../components/FileUpload/FileUpload';
 import SelectDocumentDialog from '../components/SelectDocumentDialog';
+import SettingsModal from '../components/SettingsModal';
 import { paperService } from '../services/paperService';
 
 interface Paper {
@@ -26,6 +27,7 @@ const PaperLibrary: React.FC = () => {
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'citations'>('date');
   const [selectedPaper, setSelectedPaper] = useState<{ id: string; title: string } | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     loadPapers();
@@ -137,6 +139,7 @@ const PaperLibrary: React.FC = () => {
                 + Upload Papers
               </button>
               <button
+                onClick={() => setShowSettings(true)}
                 className="p-2 text-gray-600 hover:text-gray-900"
                 title="Settings"
               >
@@ -309,6 +312,12 @@ const PaperLibrary: React.FC = () => {
           }}
         />
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </div>
   );
 };

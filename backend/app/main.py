@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.api import health, documents, papers, zotero, logs_simple as logs, document_papers
+from app.api import health, documents, papers, zotero, logs_simple as logs, document_papers, admin
 from app.api.websocket import websocket_citation_endpoint
 from app.services.background_processor import background_processor
 
@@ -65,6 +65,7 @@ app.include_router(papers.router, prefix=f"{settings.api_prefix}", tags=["papers
 app.include_router(zotero.router, prefix=f"{settings.api_prefix}", tags=["zotero"])
 app.include_router(logs.router, prefix=f"{settings.api_prefix}/logs", tags=["logs"])
 app.include_router(document_papers.router, prefix=f"{settings.api_prefix}", tags=["document-papers"])
+app.include_router(admin.router, prefix=f"{settings.api_prefix}/admin", tags=["admin"])
 
 # Add WebSocket endpoint
 app.add_websocket_route("/ws/citations", websocket_citation_endpoint)

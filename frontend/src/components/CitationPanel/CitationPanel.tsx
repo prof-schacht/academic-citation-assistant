@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import type { CitationSuggestion } from '../../services/websocketService';
+import React, { useState } from 'react';
+import type { CitationSuggestion } from '../../types';
 
 
 interface CitationPanelProps {
@@ -10,8 +10,7 @@ interface CitationPanelProps {
   onInsertCitation?: (citation: CitationSuggestion) => void;
 }
 
-const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText, suggestions = [], isConnected = false, onInsertCitation }) => {
-  const [isLoading, setIsLoading] = useState(false);
+const CitationPanel: React.FC<CitationPanelProps> = ({ selectedText, suggestions = [], isConnected = false, onInsertCitation }) => {
   const [activeTab, setActiveTab] = useState<'suggestions' | 'library'>('suggestions');
 
 
@@ -85,7 +84,7 @@ const CitationPanel: React.FC<CitationPanelProps> = ({ documentId, selectedText,
               </div>
             )}
 
-            {isLoading ? (
+            {false ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="bg-white rounded-lg shadow-sm p-4">

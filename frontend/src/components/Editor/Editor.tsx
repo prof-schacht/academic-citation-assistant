@@ -82,7 +82,7 @@ function LoadInitialContentPlugin({ content }: { content?: any }) {
 }
 
 // Simple error boundary component
-function LexicalErrorBoundaryComponent({ children, onError }: { children: React.ReactNode; onError: (error: Error) => void }) {
+function LexicalErrorBoundaryComponent({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
@@ -100,10 +100,8 @@ const Editor: React.FC<EditorProps> = ({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasContentChanged, setHasContentChanged] = useState(false);
-  const [isNewDocument] = useState(!initialContent);
   const [wordCount, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsClientRef = useRef<CitationWebSocketClient | null>(null);
 
   // Create debounced save function

@@ -26,7 +26,7 @@ export function CitationSuggestionPlugin({
   const [editor] = useLexicalComposerContext();
   const wsClientRef = useRef<CitationWebSocketClient | null>(null);
   const lastTextRef = useRef<string>('');
-  const [isConnected, setIsConnected] = useState(false);
+  const [, setIsConnected] = useState(false);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -160,7 +160,9 @@ export function CitationSuggestionPlugin({
         console.log('[CitationPlugin] Requesting suggestions for:', currentText);
         
         // Request suggestions
-        wsClientRef.current.requestSuggestions(currentText, context);
+        if (wsClientRef.current) {
+          wsClientRef.current.requestSuggestions(currentText, context);
+        }
       });
     }, 500) // 500ms debounce
   ).current;

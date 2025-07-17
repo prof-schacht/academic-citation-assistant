@@ -38,6 +38,15 @@ export interface DocumentListResponse {
   limit: number;
 }
 
+export interface BulkDeleteRequest {
+  document_ids: string[];
+}
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  requested_count: number;
+}
+
 export const documentService = {
   async create(data: CreateDocumentDto): Promise<DocumentType> {
     const response = await api.post<DocumentType>('/documents/', data);
@@ -66,5 +75,12 @@ export const documentService = {
 
   async delete(id: string): Promise<void> {
     await api.delete(`/documents/${id}`);
+  },
+
+  async bulkDelete(documentIds: string[]): Promise<BulkDeleteResponse> {
+    const response = await api.post<BulkDeleteResponse>('/documents/bulk-delete', {
+      document_ids: documentIds,
+    });
+    return response.data;
   },
 };

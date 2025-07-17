@@ -12,14 +12,13 @@ export async function exportDocument(
 ): Promise<Blob> {
   let content = '';
   let mimeType = '';
-  let filename = '';
 
   switch (options.format) {
     case 'markdown': {
       // Convert to markdown
       content = await convertToMarkdown(editorState, options.title);
       mimeType = 'text/markdown';
-      filename = `${options.title}.md`;
+      // filename = `${options.title}.md`;
       break;
     }
     
@@ -27,18 +26,19 @@ export async function exportDocument(
       // Convert to HTML
       content = await convertToHtml(editorState, options.title);
       mimeType = 'text/html';
-      filename = `${options.title}.html`;
+      // filename = `${options.title}.html`;
       break;
     }
     
     case 'txt': {
       // Plain text
       content = editorState.read(() => {
-        const text = editorState._nodeMap.get('root')?.getTextContent() || '';
+        const root = editorState._nodeMap.get('root');
+        const text = root?.getTextContent() || '';
         return `${options.title}\n${'='.repeat(options.title.length)}\n\n${text}`;
       });
       mimeType = 'text/plain';
-      filename = `${options.title}.txt`;
+      // filename = `${options.title}.txt`;
       break;
     }
     
@@ -50,7 +50,7 @@ export async function exportDocument(
         exportDate: new Date().toISOString(),
       }, null, 2);
       mimeType = 'application/json';
-      filename = `${options.title}.json`;
+      // filename = `${options.title}.json`;
       break;
     }
   }
@@ -67,7 +67,8 @@ async function convertToMarkdown(editorState: EditorState, title: string): Promi
     const root = editorState._nodeMap.get('root');
     if (!root) return markdown;
 
-    root.getChildren().forEach((node) => {
+    const children = (root as any).getChildren ? (root as any).getChildren() : [];
+    children.forEach((node: any) => {
       const type = node.getType();
       const text = node.getTextContent();
       
@@ -79,7 +80,8 @@ async function convertToMarkdown(editorState: EditorState, title: string): Promi
           break;
         case 'list':
           const listType = (node as any).getListType();
-          node.getChildren().forEach((item, index) => {
+          const listChildren = node.getChildren ? node.getChildren() : [];
+          listChildren.forEach((item: any, index: number) => {
             const prefix = listType === 'bullet' ? '-' : `${index + 1}.`;
             markdown += `${prefix} ${item.getTextContent()}\n`;
           });
@@ -104,7 +106,7 @@ async function convertToMarkdown(editorState: EditorState, title: string): Promi
 
 async function convertToHtml(editorState: EditorState, title: string): Promise<string> {
   const bodyHtml = await editorState.read(() => {
-    return $generateHtmlFromNodes(editorState._editor);
+    return $generateHtmlFromNodes((editorState as any)._editor || editorState);
   });
   
   return `<!DOCTYPE html>

@@ -732,6 +732,12 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.1.3 - Citation Key Format Consistency
+- Fixed: BibTeX export now generates citation keys without colons to match LaTeX export
+- Changed: Citation keys now use format `AuthorYearTitle` instead of `Author:Year:Title`
+- Example: `Gelp2024Towards` instead of `Gelp:2024:Towards`
+- Improvement: Consistent citation key format between BibTeX and LaTeX exports
+
 ### v0.1.2 - Citation Export Complete Fix  
 - Fixed: LaTeX export from backend now correctly includes citations as `\cite{citationKey}`
 - Fixed: All export formats (Markdown, Plain Text, LaTeX) now preserve citations properly

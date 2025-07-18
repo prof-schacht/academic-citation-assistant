@@ -159,7 +159,7 @@ class ExportService:
                         key_parts.append(clean_word)
                         break
         
-        return ":".join(key_parts)
+        return "".join(key_parts)
     
     @staticmethod
     async def export_document_latex(

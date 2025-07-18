@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import Editor from '../components/Editor/Editor';
 import CitationPanel from '../components/CitationPanel/CitationPanel';
 import DocumentPapers from '../components/DocumentPapersSimple';
@@ -497,52 +498,79 @@ const DocumentEditor: React.FC = () => {
         }
       }}>
         {/* Editor tab - keep mounted but hidden to preserve state */}
-        <div className={`h-full flex ${activeTab === 'editor' ? '' : 'hidden'}`}>
-          <div className={showCitationPanel ? (showPdfViewer ? "flex-[2] min-w-[300px]" : "flex-[3] min-w-[400px]") + " overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>
-            <Editor
-              documentId={document.id}
-              initialContent={document.content || undefined}
-              onSave={handleSave}
-              autoSaveDelay={2000}
-              userId="test-user"
-              onCitationSuggestionsUpdate={setCitationSuggestions}
-              onCitationConnectionChange={setCitationConnectionStatus}
-              onRegisterCitationInsert={(handler) => {
-                insertCitationRef.current = handler;
-              }}
-              onEditorReady={(saveFunction) => {
-                editorSaveRef.current = saveFunction;
-              }}
-              onCitationInserted={handleCitationInserted}
-            />
-          </div>
-          {showCitationPanel && (
-            <div className={showPdfViewer ? "flex-[1] min-w-[250px]" : "flex-[2] min-w-[300px]" + " bg-gray-50 overflow-hidden border-r border-gray-200"}>
-              <CitationPanel 
-                documentId={document.id} 
-                suggestions={citationSuggestions}
-                isConnected={citationConnectionStatus}
-                onInsertCitation={(citation) => {
-                  if (insertCitationRef.current) {
-                    insertCitationRef.current(citation);
-                  }
+        <div className={`h-full ${activeTab === 'editor' ? '' : 'hidden'}`}>
+          <PanelGroup direction="horizontal" className="h-full">
+            {/* Editor Panel */}
+            <Panel 
+              defaultSize={showCitationPanel ? (showPdfViewer ? 40 : 60) : 100}
+              minSize={30}
+              className="overflow-hidden"
+            >
+              <Editor
+                documentId={document.id}
+                initialContent={document.content || undefined}
+                onSave={handleSave}
+                autoSaveDelay={2000}
+                userId="test-user"
+                onCitationSuggestionsUpdate={setCitationSuggestions}
+                onCitationConnectionChange={setCitationConnectionStatus}
+                onRegisterCitationInsert={(handler) => {
+                  insertCitationRef.current = handler;
                 }}
-                onAddToLibrary={handleAddToLibrary}
-                bibliographyPaperIds={bibliographyPaperIds}
-                citedPaperIds={citedPaperIds}
-                onViewDetails={handleViewPaperDetails}
-                selectedPaperId={selectedPaper?.paperId}
+                onEditorReady={(saveFunction) => {
+                  editorSaveRef.current = saveFunction;
+                }}
+                onCitationInserted={handleCitationInserted}
               />
-            </div>
-          )}
-          {showPdfViewer && showCitationPanel && (
-            <div className="flex-[2] min-w-[400px] overflow-hidden">
-              <PdfViewer
-                paper={selectedPaper}
-                onClose={handleClosePdfViewer}
-              />
-            </div>
-          )}
+            </Panel>
+            
+            {showCitationPanel && (
+              <>
+                <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 cursor-col-resize" />
+                
+                {/* Citations Panel */}
+                <Panel 
+                  defaultSize={showPdfViewer ? 20 : 40}
+                  minSize={20}
+                  className="bg-gray-50 overflow-hidden"
+                >
+                  <CitationPanel 
+                    documentId={document.id} 
+                    suggestions={citationSuggestions}
+                    isConnected={citationConnectionStatus}
+                    onInsertCitation={(citation) => {
+                      if (insertCitationRef.current) {
+                        insertCitationRef.current(citation);
+                      }
+                    }}
+                    onAddToLibrary={handleAddToLibrary}
+                    bibliographyPaperIds={bibliographyPaperIds}
+                    citedPaperIds={citedPaperIds}
+                    onViewDetails={handleViewPaperDetails}
+                    selectedPaperId={selectedPaper?.paperId}
+                  />
+                </Panel>
+              </>
+            )}
+            
+            {showPdfViewer && showCitationPanel && (
+              <>
+                <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 cursor-col-resize" />
+                
+                {/* PDF Viewer Panel */}
+                <Panel 
+                  defaultSize={40}
+                  minSize={30}
+                  className="overflow-hidden"
+                >
+                  <PdfViewer
+                    paper={selectedPaper}
+                    onClose={handleClosePdfViewer}
+                  />
+                </Panel>
+              </>
+            )}
+          </PanelGroup>
         </div>
         
         {/* Bibliography tab */}

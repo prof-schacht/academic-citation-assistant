@@ -40,5 +40,8 @@
   "devDependencies": {
     "@playwright/test": "^1.54.1",
     "playwright": "^1.54.1"
+  },
+  "dependencies": {
+    "react-resizable-panels": "^3.0.3"
   }
 }

@@ -25,7 +25,7 @@ import { CitationInsertPlugin } from './plugins/CitationInsertPlugin';
 import { SelectionCitationPlugin } from './plugins/SelectionCitationPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
-import type { CitationSuggestion, CitationWebSocketClient } from '../../services/websocketService';
+import type { CitationSuggestion, CitationWebSocketClient, CitationConfig } from '../../services/websocketService';
 
 interface EditorProps {
   documentId?: string;
@@ -33,6 +33,7 @@ interface EditorProps {
   onSave?: (content: any, editorState?: EditorState) => void;
   autoSaveDelay?: number;
   userId?: string;
+  citationConfig?: CitationConfig;
   onCitationSuggestionsUpdate?: (suggestions: CitationSuggestion[]) => void;
   onCitationConnectionChange?: (connected: boolean) => void;
   onRegisterCitationInsert?: (handler: (citation: CitationSuggestion) => void) => void;
@@ -103,6 +104,7 @@ const Editor: React.FC<EditorProps> = ({
   onSave,
   autoSaveDelay = 2000,
   userId = 'default-user',
+  citationConfig,
   onCitationSuggestionsUpdate,
   onCitationConnectionChange,
   onRegisterCitationInsert,
@@ -255,6 +257,7 @@ const Editor: React.FC<EditorProps> = ({
               <>
                 <CitationSuggestionPlugin
                   userId={userId}
+                  citationConfig={citationConfig}
                   onSuggestionsUpdate={onCitationSuggestionsUpdate}
                   onConnectionChange={onCitationConnectionChange}
                   onWsClientReady={(client) => {

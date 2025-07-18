@@ -7,6 +7,12 @@ import type { TextContext, CitationSuggestion, WSMessage } from '../types';
 
 export type { TextContext, CitationSuggestion, WSMessage };
 
+export interface CitationConfig {
+  useEnhanced?: boolean;
+  useReranking?: boolean;
+  searchStrategy?: 'vector' | 'bm25' | 'hybrid';
+}
+
 export class CitationWebSocketClient {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -16,6 +22,11 @@ export class CitationWebSocketClient {
   private userId: string;
   private isConnected = false;
   private pingInterval: NodeJS.Timeout | null = null;
+  private config: CitationConfig = {
+    useEnhanced: true,
+    useReranking: true,
+    searchStrategy: 'hybrid'
+  };
   private callbacks: {
     onSuggestions?: (citations: CitationSuggestion[]) => void;
     onError?: (error: string) => void;
@@ -23,8 +34,9 @@ export class CitationWebSocketClient {
     onDisconnect?: () => void;
   } = {};
 
-  constructor(userId: string) {
+  constructor(userId: string, config?: CitationConfig) {
     this.userId = userId;
+    this.config = { ...this.config, ...config };
   }
 
   connect(): void {
@@ -32,7 +44,16 @@ export class CitationWebSocketClient {
       return;
     }
 
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8000/ws/citations?user_id=${this.userId}`;
+    // Build WebSocket URL with configuration parameters
+    const params = new URLSearchParams({
+      user_id: this.userId,
+      use_enhanced: String(this.config.useEnhanced ?? true),
+      use_reranking: String(this.config.useReranking ?? true),
+      search_strategy: this.config.searchStrategy ?? 'hybrid'
+    });
+    
+    const endpoint = this.config.useEnhanced ? '/ws/citations/v2' : '/ws/citations';
+    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8000${endpoint}?${params.toString()}`;
     console.log('[WebSocket] Connecting to:', wsUrl);
     
     try {
@@ -131,6 +152,44 @@ export class CitationWebSocketClient {
 
   getConnectionStatus(): boolean {
     return this.isConnected;
+  }
+
+  /**
+   * Update citation configuration and reconnect with new settings
+   */
+  updateConfig(config: Partial<CitationConfig>): void {
+    const configChanged = 
+      config.useEnhanced !== this.config.useEnhanced ||
+      config.useReranking !== this.config.useReranking ||
+      config.searchStrategy !== this.config.searchStrategy;
+    
+    this.config = { ...this.config, ...config };
+    
+    // Reconnect if configuration changed and we're connected
+    if (configChanged && this.isConnected) {
+      console.log('[WebSocket] Configuration changed, reconnecting...');
+      this.disconnect();
+      this.connect();
+    }
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig(): CitationConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Send preferences update message to server (for v2 endpoint)
+   */
+  updatePreferences(preferences: Partial<CitationConfig>): void {
+    if (this.config.useEnhanced) {
+      this.sendMessage({
+        type: 'update_preferences',
+        preferences: preferences as any
+      });
+    }
   }
 
   private handleMessage(message: WSMessage): void {
@@ -283,10 +342,13 @@ export class CitationWebSocketClient {
 // Singleton instance management
 let instance: CitationWebSocketClient | null = null;
 
-export function getCitationWebSocketClient(userId: string): CitationWebSocketClient {
+export function getCitationWebSocketClient(userId: string, config?: CitationConfig): CitationWebSocketClient {
   if (!instance || instance['userId'] !== userId) {
     instance?.disconnect();
-    instance = new CitationWebSocketClient(userId);
+    instance = new CitationWebSocketClient(userId, config);
+  } else if (config) {
+    // Update config if provided
+    instance.updateConfig(config);
   }
   return instance;
 }

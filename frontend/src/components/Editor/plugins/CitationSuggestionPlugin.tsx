@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $getSelection, $isRangeSelection, $getRoot } from 'lexical';
 import type { EditorState } from 'lexical';
-import { getCitationWebSocketClient, CitationWebSocketClient } from '../../../services/websocketService';
+import { getCitationWebSocketClient, CitationWebSocketClient, CitationConfig } from '../../../services/websocketService';
 import type { CitationSuggestion } from '../../../services/websocketService';
 import { debounce } from '../../../utils/debounce';
 
 interface CitationSuggestionPluginProps {
   userId: string;
+  citationConfig?: CitationConfig;
   onSuggestionsUpdate: (suggestions: CitationSuggestion[]) => void;
   onConnectionChange?: (connected: boolean) => void;
   onWsClientReady?: (client: CitationWebSocketClient) => void;
@@ -19,6 +20,7 @@ interface CitationSuggestionPluginProps {
 
 export function CitationSuggestionPlugin({
   userId,
+  citationConfig,
   onSuggestionsUpdate,
   onConnectionChange,
   onWsClientReady
@@ -30,8 +32,8 @@ export function CitationSuggestionPlugin({
 
   // Initialize WebSocket connection
   useEffect(() => {
-    console.log('[CitationPlugin] Initializing WebSocket for user:', userId);
-    const wsClient = getCitationWebSocketClient(userId);
+    console.log('[CitationPlugin] Initializing WebSocket for user:', userId, 'config:', citationConfig);
+    const wsClient = getCitationWebSocketClient(userId, citationConfig);
     wsClientRef.current = wsClient;
     
     // Notify parent component that client is ready
@@ -72,7 +74,7 @@ export function CitationSuggestionPlugin({
     return () => {
       // Don't disconnect on unmount as other components might use it
     };
-  }, [userId, onSuggestionsUpdate, onConnectionChange]);
+  }, [userId, citationConfig, onSuggestionsUpdate, onConnectionChange]);
 
   // Debounced function to request suggestions
   const requestSuggestions = useRef(

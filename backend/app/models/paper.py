@@ -65,8 +65,8 @@ class Paper(Base):
     processing_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Metadata source tracking
-    metadata_source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'manual', 'zotero', 'crossref', 'arxiv', etc.
-    last_metadata_fetch: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    metadata_source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default='text_extraction')  # 'manual', 'zotero', 'crossref', 'arxiv', 'text_extraction', etc.
+    last_metadata_fetch: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=datetime.utcnow)
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

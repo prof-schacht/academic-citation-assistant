@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.utils.logging_utils import log_async_info, log_async_error
 from app.models.system_log import LogCategory
 from app.services.improved_metadata_extractor import ImprovedMetadataExtractor
+from app.services.external_metadata_service import MetadataFetcherService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class PaperProcessorService:
         self.embedding_service = EmbeddingService()
         self.chunking_service = TextChunkingService()
         self.metadata_extractor = ImprovedMetadataExtractor()
+        self.external_metadata_service = MetadataFetcherService(email="support@academic-citation.com")
     
     @classmethod
     async def process_paper(cls, paper_id: str, file_path: str) -> None:
@@ -70,14 +72,44 @@ class PaperProcessorService:
                 if not markdown_text:
                     raise ValueError("Failed to extract text from file")
                 
-                # Extract metadata from the markdown using improved extractor
-                metadata = processor.metadata_extractor.extract_metadata(markdown_text)
+                # First try to extract identifiers from original filename (stored in title)
+                identifiers = {}
+                import re
+                # Check if the paper title (which contains original filename) has an arXiv ID
+                if paper.title:
+                    arxiv_match = re.search(r'(\d{4}\.\d{4,5}(?:v\d+)?)', paper.title)
+                    if arxiv_match:
+                        identifiers['arxiv_id'] = arxiv_match.group(1)
+                        logger.info(f"Found arXiv ID in original filename: {identifiers['arxiv_id']}")
+                
+                # Also try to extract identifiers from the text
+                text_identifiers = processor.external_metadata_service.extract_identifiers_from_text(markdown_text[:5000])  # Check first 5000 chars
+                identifiers.update(text_identifiers)
+                
+                metadata = None
+                if identifiers:
+                    logger.info(f"Found identifiers: {identifiers}")
+                    metadata = await processor.external_metadata_service.fetch_metadata(identifiers)
+                
+                # If external APIs didn't work, fall back to text extraction
+                if not metadata:
+                    logger.info("No metadata from external APIs, falling back to text extraction")
+                    metadata = processor.metadata_extractor.extract_metadata(markdown_text)
+                else:
+                    # Add identifiers to metadata
+                    metadata.update(identifiers)
                 
                 # Update paper with extracted metadata
                 paper.title = metadata.get('title', paper.title)
                 paper.authors = metadata.get('authors', paper.authors)
                 paper.abstract = metadata.get('abstract', paper.abstract)
                 paper.year = metadata.get('year', paper.year)
+                paper.journal = metadata.get('journal', metadata.get('venue', paper.journal))
+                paper.doi = metadata.get('doi', paper.doi)
+                paper.arxiv_id = metadata.get('arxiv_id', paper.arxiv_id)
+                paper.citation_count = metadata.get('citation_count', paper.citation_count)
+                paper.source_url = metadata.get('url', metadata.get('pdf_url', paper.source_url))
+                paper.metadata_source = metadata.get('source', 'text_extraction')
                 paper.full_text = markdown_text
                 
                 # Chunk the text (250 words with 50-word overlap for better granularity)

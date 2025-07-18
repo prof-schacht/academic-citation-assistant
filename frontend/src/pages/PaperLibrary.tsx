@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import FileUpload from '../components/FileUpload/FileUpload';
 import SelectDocumentDialog from '../components/SelectDocumentDialog';
 import SettingsModal from '../components/SettingsModal';
+import { PaperMetadataEditor } from '../components/PaperMetadataEditor/PaperMetadataEditor';
+import { PaperChunksViewer } from '../components/PaperChunksViewer/PaperChunksViewer';
 import { paperService } from '../services/paperService';
 
 interface Paper {
@@ -15,6 +17,12 @@ interface Paper {
   chunk_count?: number;
   status: 'processing' | 'indexed' | 'error';
   created_at: string;
+  metadata_source?: string;
+  abstract?: string;
+  doi?: string;
+  arxiv_id?: string;
+  pubmed_id?: string;
+  semantic_scholar_id?: string;
 }
 
 const PaperLibrary: React.FC = () => {
@@ -28,6 +36,10 @@ const PaperLibrary: React.FC = () => {
   const [selectedPaper, setSelectedPaper] = useState<{ id: string; title: string } | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [editingPaper, setEditingPaper] = useState<Paper | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [viewingChunksPaper, setViewingChunksPaper] = useState<Paper | null>(null);
+  const [showChunksDialog, setShowChunksDialog] = useState(false);
 
   useEffect(() => {
     loadPapers();
@@ -269,10 +281,22 @@ const PaperLibrary: React.FC = () => {
                       )}
                       <button
                         className="p-1 text-gray-400 hover:text-gray-600"
+                        title="View Chunks"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewingChunksPaper(paper);
+                          setShowChunksDialog(true);
+                        }}
+                      >
+                        🔍
+                      </button>
+                      <button
+                        className="p-1 text-gray-400 hover:text-gray-600"
                         title="Edit"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // TODO: Edit paper metadata
+                          setEditingPaper(paper);
+                          setShowEditDialog(true);
                         }}
                       >
                         ✏️
@@ -318,6 +342,36 @@ const PaperLibrary: React.FC = () => {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
       />
+
+      {/* Paper Metadata Editor */}
+      {editingPaper && (
+        <PaperMetadataEditor
+          paper={editingPaper}
+          isOpen={showEditDialog}
+          onClose={() => {
+            setShowEditDialog(false);
+            setEditingPaper(null);
+          }}
+          onUpdate={(updatedPaper) => {
+            // Update the paper in the list
+            setPapers(papers.map(p => p.id === updatedPaper.id ? updatedPaper : p));
+            setShowEditDialog(false);
+            setEditingPaper(null);
+          }}
+        />
+      )}
+
+      {/* Paper Chunks Viewer */}
+      {viewingChunksPaper && (
+        <PaperChunksViewer
+          paper={viewingChunksPaper}
+          isOpen={showChunksDialog}
+          onClose={() => {
+            setShowChunksDialog(false);
+            setViewingChunksPaper(null);
+          }}
+        />
+      )}
     </div>
   );
 };

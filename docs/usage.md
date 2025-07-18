@@ -47,6 +47,56 @@ View full papers directly within the document editor while writing:
 - Backend must be running and accessible
 - Modern browser with PDF rendering support
 
+### NEW: External Metadata Integration & Manual Editing 📊
+Automatic metadata fetching from arXiv and Crossref APIs, with manual editing capabilities:
+
+#### How it Works
+- **Automatic API Integration**: When you upload a paper, the system automatically:
+  - Searches for arXiv IDs and DOIs in the paper text
+  - Fetches accurate metadata from arXiv API (for preprints) or Crossref API (for published papers)
+  - Falls back to text extraction only if no identifiers are found
+- **Metadata Source Tracking**: See where each paper's metadata came from (arxiv, crossref, text_extraction, etc.)
+- **Manual Editing**: Edit paper metadata using the pencil (✏️) button in the Paper Library
+
+#### Using External APIs
+The system automatically detects and uses:
+1. **arXiv IDs**: Formats like "2506.06352", "arXiv:2506.06352v1"
+2. **DOIs**: Formats like "10.1234/example", "https://doi.org/10.1234/example"
+3. **Priority**: arXiv → Crossref → Text Extraction
+
+#### Manual Metadata Editing
+1. Go to Paper Library and find the paper you want to edit
+2. Click the **pencil (✏️)** button
+3. Choose between two editing modes:
+   - **Manual Edit**: Edit individual fields (title, authors, year, etc.)
+   - **Import BibTeX**: Paste a BibTeX entry to import all metadata at once
+
+#### BibTeX Import
+```bibtex
+@article{example2024,
+  title = {Your Paper Title},
+  author = {Doe, John and Smith, Jane},
+  year = {2024},
+  journal = {Journal Name},
+  doi = {10.1234/example},
+  abstract = {Paper abstract...}
+}
+```
+
+#### Benefits
+- **Accurate Metadata**: No more "mental goal" instead of actual titles
+- **Time Saving**: Automatic fetching from trusted academic sources
+- **Flexibility**: Manual override when automatic detection fails
+- **BibTeX Support**: Easy import for papers you already have citations for
+- **Transparency**: Always see where metadata came from
+
+#### Technical Details
+- Integrated arXiv XML API and Crossref REST API
+- Asynchronous metadata fetching during paper processing
+- Identifier extraction using regex patterns
+- Client-side BibTeX parsing for quick preview
+- Metadata source field added to track data origin
+
 ## Recent Updates (July 18, 2025)
 
 ### NEW: Overleaf Integration 🚀

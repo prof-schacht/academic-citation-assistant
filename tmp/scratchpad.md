@@ -1,51 +1,51 @@
-# Development Scratchpad
+# Academic Citation Assistant - Development Scratchpad
 
-## Overleaf Integration Manual Testing Results
+## External Metadata Integration Development
 
-**Date**: 2025-07-18
+### Date: 2025-07-18
 
-### Test Results Summary
+#### Problem Statement
+The metadata extraction from uploaded PDFs was producing poor quality results. For example, instead of extracting the actual paper title, it was extracting phrases like "mental goal" from the text. The user requested integration with external APIs (arXiv, DOI) to fetch accurate metadata.
 
-✅ **Button Appearance**
-- The "Open in Overleaf" button appears correctly in the document header
-- Button styling: Green background (rgb(22, 163, 74)) with white text
-- Button classes: `px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1`
-- Button is positioned between the Export button and Hide Citations button
+#### Solution Implemented
 
-✅ **Console Output**
-- No errors in browser console
-- Successfully shows export process:
-  - "[Editor] Manual save triggered"
-  - "[Editor] Immediate save requested"
-  - "Document saved: {root: Object}"
-  - "Document exported to Overleaf successfully"
+1. **External API Research**
+   - Created comprehensive documentation of available APIs (arXiv, Crossref, Semantic Scholar, PubMed)
+   - Documented rate limits, authentication requirements, and response formats
 
-✅ **Overleaf Navigation**
-- Clicking the button successfully opens a new browser tab
-- New tab navigates to `https://www.overleaf.com/docs`
-- User is redirected to login page at `https://www.overleaf.com/login` (expected behavior when not logged in)
-- No JavaScript errors on Overleaf side
+2. **External Metadata Service**
+   - Created `external_metadata_service.py` with three main components:
+     - `ArxivClient`: Fetches metadata from arXiv API using XML format
+     - `CrossrefClient`: Fetches metadata from Crossref API using DOI
+     - `MetadataFetcherService`: Unified service that coordinates fetching from multiple sources
+   - Added identifier extraction from text (arXiv IDs, DOIs, PMIDs)
+   - Implemented BibTeX parsing for manual metadata entry
 
-❓ **File Transfer** 
-- Cannot verify if files (main.tex and references.bib) are transferred without logging into Overleaf
-- The API call appears successful based on console logs
+3. **Backend Integration**
+   - Updated `paper_processor.py` to use external APIs before falling back to text extraction
+   - Added `metadata_source` field to Paper model to track where metadata came from
+   - Updated API response schema to include metadata source
 
-### Screenshots Captured
-1. `1-homepage.png` - Landing page
-2. `2-after-get-started.png` - Documents list view
-3. `3-document-view.png` - Document editor with Overleaf button visible
-4. `4-header-with-overleaf-button.png` - Close-up of header buttons
-5. `5-overleaf-page.png` - Overleaf login page
+4. **Frontend Manual Editing**
+   - Created `PaperMetadataEditor` component with two modes:
+     - Manual form editing for individual fields
+     - BibTeX import for bulk metadata entry
+   - Integrated edit button in Paper Library page
+   - Shows metadata source to users
 
-### Recommendations for Complete Testing
-To fully verify the integration:
-1. Create an Overleaf account or use existing credentials
-2. Log into Overleaf before clicking the button
-3. Verify that both `main.tex` and `references.bib` files are created in the new project
-4. Check that the bibliography reference in main.tex uses `\bibliography{references}`
-5. Attempt to compile the document in Overleaf
+5. **Testing**
+   - Created comprehensive unit tests for external metadata service
+   - Tests cover ID cleaning, metadata extraction, API mocking, and fallback logic
 
-### Technical Notes
-- The integration uses Overleaf's `/docs` endpoint which automatically creates a new project
-- The document content is properly saved before export
-- The citation plugin continues to work during the export process
+#### Technical Decisions
+- Used httpx for async HTTP requests in Python
+- Implemented fallback strategy: arXiv → Crossref → text extraction
+- Simple client-side BibTeX parsing (could be improved with backend endpoint)
+- Kept external API calls in background processing to avoid blocking uploads
+
+#### Next Steps
+- Add Semantic Scholar API integration
+- Implement server-side BibTeX parsing endpoint
+- Add retry logic for failed API calls
+- Consider caching external API responses
+- Add manual override for auto-detected identifiers

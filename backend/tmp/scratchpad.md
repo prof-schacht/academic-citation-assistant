@@ -103,3 +103,52 @@ Generated comprehensive test report at `/backend/tmp/test_results_report.md` wit
 - Infrastructure requirements
 - Security considerations
 - Recommendations for additional tests
+
+## 2025-07-18: External Academic API Research
+
+### Task
+Research academic metadata APIs (arXiv, Crossref, PubMed, etc.) for fetching paper metadata.
+
+### Actions Taken
+1. Researched arXiv API:
+   - Base URL: `http://export.arxiv.org/api/query`
+   - No authentication required
+   - Uses Atom 1.0 XML format
+   - Fetch by ID: `?id_list=2506.06352v1`
+   - Rate limit: 3-second delay recommended
+
+2. Researched Crossref API:
+   - Base URL: `https://api.crossref.org`
+   - No authentication required (email in headers recommended)
+   - JSON response format
+   - Fetch by DOI: `/works/{DOI}`
+   - Rate limits in response headers
+
+3. Researched Semantic Scholar API:
+   - Base URL: `http://api.semanticscholar.org/graph/v1/`
+   - Optional API key for better rate limits
+   - JSON response format
+   - Multiple ID formats supported (DOI, arXiv, PMID)
+   - Unauthenticated: 1000 RPS shared, Authenticated: 1 RPS
+
+4. Researched PubMed E-utilities API:
+   - Base URL: `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/`
+   - Optional API key (3 RPS without, 10 RPS with)
+   - XML or JSON formats
+   - ESummary and EFetch endpoints for metadata
+
+5. Identified additional APIs:
+   - CORE API (open access papers)
+   - Europe PMC API (European life sciences)
+   - DOAJ API (open access journals)
+
+### Deliverables
+- Created comprehensive documentation: `/backend/docs/external-api-research.md`
+- Included example code for each API
+- Provided comparison table and implementation recommendations
+
+### Next Steps
+- Implement API client classes for each service
+- Create unified interface for fetching metadata
+- Add caching layer to reduce API calls
+- Implement fallback strategies between APIs

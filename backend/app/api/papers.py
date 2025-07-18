@@ -49,6 +49,7 @@ def paper_to_response(paper: Paper, chunk_count: int = 0) -> PaperResponse:
         processing_error=paper.processing_error,
         created_at=paper.created_at,
         updated_at=paper.updated_at,
+        metadata_source=paper.metadata_source,
         # Computed fields
         status='indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
         chunk_count=chunk_count,
@@ -190,6 +191,51 @@ async def get_papers(
         skip=skip,
         limit=limit
     )
+
+
+@router.get("/{paper_id}/chunks")
+async def get_paper_chunks(
+    paper_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all chunks for a paper with their content."""
+    from app.models.paper_chunk import PaperChunk
+    
+    # Get the paper first
+    paper = await db.get(Paper, paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    
+    # Get all chunks for this paper
+    result = await db.execute(
+        select(PaperChunk)
+        .where(PaperChunk.paper_id == paper_id)
+        .order_by(PaperChunk.chunk_index)
+    )
+    chunks = result.scalars().all()
+    
+    # Format the response
+    chunks_data = [
+        {
+            "id": str(chunk.id),
+            "chunk_index": chunk.chunk_index,
+            "content": chunk.content,
+            "start_char": chunk.start_char,
+            "end_char": chunk.end_char,
+            "word_count": chunk.word_count,
+            "section_title": chunk.section_title
+        }
+        for chunk in chunks
+    ]
+    
+    return {
+        "paper_id": str(paper_id),
+        "title": paper.title,
+        "full_text": paper.full_text[:5000] if paper.full_text else None,  # First 5000 chars
+        "full_text_length": len(paper.full_text) if paper.full_text else 0,
+        "chunk_count": len(chunks),
+        "chunks": chunks_data
+    }
 
 
 @router.get("/{paper_id}", response_model=PaperResponse)

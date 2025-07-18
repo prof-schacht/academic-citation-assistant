@@ -48,6 +48,7 @@ class PaperResponse(PaperBase):
     status: str = Field(description="Computed status: indexed, processing, or error")
     chunk_count: Optional[int] = Field(None, description="Number of text chunks if processed")
     has_pdf: bool = Field(False, description="Whether this paper has a PDF file available")
+    metadata_source: Optional[str] = Field(None, description="Source of metadata (arxiv, crossref, text_extraction, etc.)")
     
     class Config:
         from_attributes = True

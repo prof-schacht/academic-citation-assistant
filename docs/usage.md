@@ -2,6 +2,53 @@
 
 ## Recent Updates (July 18, 2025)
 
+### NEW: PDF Viewer for Citation Details 📄
+View full papers directly within the document editor while writing:
+
+#### How it Works
+- **Integrated PDF Viewer**: Opens in a third column when you click "View Details" on any citation suggestion
+- **Three-Column Layout**: Editor | Citations Panel | PDF Viewer for seamless research workflow
+- **Read While Writing**: Keep the paper open while you write about it
+- **Visual Highlighting**: Selected citation is highlighted in the citations panel
+
+#### Using the Feature
+1. Start typing in your document to trigger citation suggestions
+2. When suggestions appear, click **"View Details"** on any paper
+3. The PDF viewer opens in a third column showing:
+   - Paper title, authors, and year in the header
+   - Full PDF content (if available)
+   - Fallback to "View paper online" link if no PDF is stored
+4. Click the **X** button to close the PDF viewer and return to two-column layout
+
+#### Benefits
+- **Context Preservation**: Read the paper without leaving your writing environment
+- **Efficient Research**: No need to switch between windows or applications
+- **Smart Layout**: Interface automatically adjusts between 2 and 3 columns
+- **Quick Reference**: Easily reference specific sections while writing
+
+#### Technical Details
+- Uses @react-pdf-viewer/core for PDF rendering
+- Dynamic flex-based layout with responsive column sizing
+- PDF files served from backend at `/api/papers/{paper_id}/pdf`
+- Supports papers with uploaded PDF files (check `has_pdf` field)
+- Loading states and error handling for smooth user experience
+
+#### Layout Behavior
+- **Two-Column Mode** (default):
+  - Editor: 60% width (flex-[3])
+  - Citations: 40% width (flex-[2])
+- **Three-Column Mode** (with PDF viewer):
+  - Editor: 40% width (flex-[2])
+  - Citations: 20% width (flex-[1])
+  - PDF Viewer: 40% width (flex-[2])
+
+#### Requirements
+- Papers must have PDF files uploaded to be viewable
+- Backend must be running and accessible
+- Modern browser with PDF rendering support
+
+## Recent Updates (July 18, 2025)
+
 ### NEW: Overleaf Integration 🚀
 Export your documents directly to Overleaf for professional LaTeX editing:
 
@@ -763,6 +810,16 @@ ws://localhost:8000/ws/citations?user_id={user_id}
 Last updated: 2025-07-18
 
 ## Version History
+
+### v0.2.1 - PDF Viewer for Citations
+- NEW: Added integrated PDF viewer for citation details
+- Feature: Three-column layout when viewing PDFs (Editor | Citations | PDF Viewer)
+- Feature: Click "View Details" on any citation to open the paper's PDF
+- Feature: Visual highlighting of selected citation in the panel
+- Feature: Close button to return to two-column layout
+- Improvement: Dynamic layout adjustment with responsive column sizing
+- Technical: Uses @react-pdf-viewer/core for PDF rendering
+- Technical: Backend endpoint `/api/papers/{paper_id}/pdf` serves PDF files
 
 ### v0.2.0 - Overleaf Integration
 - NEW: Added "Open in Overleaf" button for one-click export to Overleaf

@@ -9,8 +9,10 @@ interface CitationPanelProps {
   isConnected?: boolean;
   onInsertCitation?: (citation: CitationSuggestion) => void;
   onAddToLibrary?: (citation: CitationSuggestion) => void;
+  onViewDetails?: (citation: CitationSuggestion) => void;
   bibliographyPaperIds?: Set<string>;
   citedPaperIds?: Set<string>;
+  selectedPaperId?: string;
 }
 
 const CitationPanel: React.FC<CitationPanelProps> = ({ 
@@ -19,8 +21,10 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
   isConnected = false, 
   onInsertCitation,
   onAddToLibrary,
+  onViewDetails,
   bibliographyPaperIds = new Set(),
-  citedPaperIds = new Set()
+  citedPaperIds = new Set(),
+  selectedPaperId
 }) => {
   // Removed activeTab state since we only have suggestions now
 
@@ -100,10 +104,14 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
                     });
                   }
                   
+                  const isSelected = selectedPaperId === citation.paperId;
+                  
                   return (
                     <div
                       key={citation.chunkId || `${citation.paperId}-${index}`}
-                      className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+                      className={`bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow ${
+                        isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -192,7 +200,12 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
                         {isInBibliography ? 'In Library' : 'Add to Library'}
                       </button>
                       <button
-                        className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 transition"
+                        onClick={() => onViewDetails && onViewDetails(citation)}
+                        className={`px-3 py-1 text-xs transition ${
+                          isSelected 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
                       >
                         View Details
                       </button>

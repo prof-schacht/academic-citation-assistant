@@ -4,6 +4,7 @@ import Editor from '../components/Editor/Editor';
 import CitationPanel from '../components/CitationPanel/CitationPanel';
 import DocumentPapers from '../components/DocumentPapersSimple';
 import ExportDialog from '../components/ExportDialog';
+import PdfViewer from '../components/PdfViewer';
 import { documentService } from '../services/documentService';
 import { documentPaperService } from '../services/documentPaperService';
 import { OverleafService } from '../services/overleafService';
@@ -31,6 +32,8 @@ const DocumentEditor: React.FC = () => {
   const [bibliographyPaperIds, setBibliographyPaperIds] = useState<Set<string>>(new Set());
   const [citedPaperIds, setCitedPaperIds] = useState<Set<string>>(new Set());
   const [isExportingToOverleaf, setIsExportingToOverleaf] = useState(false);
+  const [selectedPaper, setSelectedPaper] = useState<CitationSuggestion | null>(null);
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
   const editorStateRef = useRef<EditorState | null>(null);
   const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
@@ -339,6 +342,17 @@ const DocumentEditor: React.FC = () => {
     }
   };
 
+  const handleViewPaperDetails = (paper: CitationSuggestion) => {
+    console.log('Viewing paper details:', paper.title);
+    setSelectedPaper(paper);
+    setShowPdfViewer(true);
+  };
+
+  const handleClosePdfViewer = () => {
+    setShowPdfViewer(false);
+    setSelectedPaper(null);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -484,7 +498,7 @@ const DocumentEditor: React.FC = () => {
       }}>
         {/* Editor tab - keep mounted but hidden to preserve state */}
         <div className={`h-full flex ${activeTab === 'editor' ? '' : 'hidden'}`}>
-          <div className={showCitationPanel ? "flex-[3] min-w-[400px] overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>
+          <div className={showCitationPanel ? (showPdfViewer ? "flex-[2] min-w-[300px]" : "flex-[3] min-w-[400px]") + " overflow-hidden border-r border-gray-200" : "flex-1 overflow-hidden"}>
             <Editor
               documentId={document.id}
               initialContent={document.content || undefined}
@@ -503,7 +517,7 @@ const DocumentEditor: React.FC = () => {
             />
           </div>
           {showCitationPanel && (
-            <div className="flex-[2] min-w-[300px] bg-gray-50 overflow-hidden">
+            <div className={showPdfViewer ? "flex-[1] min-w-[250px]" : "flex-[2] min-w-[300px]" + " bg-gray-50 overflow-hidden border-r border-gray-200"}>
               <CitationPanel 
                 documentId={document.id} 
                 suggestions={citationSuggestions}
@@ -516,6 +530,16 @@ const DocumentEditor: React.FC = () => {
                 onAddToLibrary={handleAddToLibrary}
                 bibliographyPaperIds={bibliographyPaperIds}
                 citedPaperIds={citedPaperIds}
+                onViewDetails={handleViewPaperDetails}
+                selectedPaperId={selectedPaper?.paperId}
+              />
+            </div>
+          )}
+          {showPdfViewer && showCitationPanel && (
+            <div className="flex-[2] min-w-[400px] overflow-hidden">
+              <PdfViewer
+                paper={selectedPaper}
+                onClose={handleClosePdfViewer}
               />
             </div>
           )}
@@ -567,6 +591,12 @@ const DocumentEditor: React.FC = () => {
               onAddToLibrary={handleAddToLibrary}
               bibliographyPaperIds={bibliographyPaperIds}
               citedPaperIds={citedPaperIds}
+              onViewDetails={(paper) => {
+                handleViewPaperDetails(paper);
+                // Switch to editor tab to show PDF viewer
+                setActiveTab('editor');
+              }}
+              selectedPaperId={selectedPaper?.paperId}
             />
         </div>
       </div>

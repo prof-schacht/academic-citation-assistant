@@ -79,5 +79,10 @@ class Paper(Base):
     zotero_sync: Mapped[Optional["ZoteroSync"]] = relationship("ZoteroSync", back_populates="paper", cascade="all, delete-orphan")
     document_papers: Mapped[List["DocumentPaper"]] = relationship("DocumentPaper", back_populates="paper", cascade="all, delete-orphan")
     
+    @property
+    def has_pdf(self) -> bool:
+        """Check if this paper has a PDF file available."""
+        return self.file_path is not None
+    
     def __repr__(self) -> str:
         return f"<Paper(id={self.id}, title={self.title[:50]}...)>"

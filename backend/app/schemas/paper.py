@@ -47,6 +47,7 @@ class PaperResponse(PaperBase):
     # Additional fields for frontend
     status: str = Field(description="Computed status: indexed, processing, or error")
     chunk_count: Optional[int] = Field(None, description="Number of text chunks if processed")
+    has_pdf: bool = Field(False, description="Whether this paper has a PDF file available")
     
     class Config:
         from_attributes = True

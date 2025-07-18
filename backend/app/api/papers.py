@@ -5,6 +5,7 @@ from typing import List, Optional
 from uuid import UUID
 import aiofiles
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, String
 from markitdown import MarkItDown
@@ -284,6 +285,45 @@ async def reprocess_paper(
     )
     
     return {"message": "Paper queued for reprocessing"}
+
+
+@router.get("/{paper_id}/pdf")
+async def get_paper_pdf(
+    paper_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Download the PDF file for a paper."""
+    paper = await db.get(Paper, paper_id)
+    
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    
+    if not paper.file_path:
+        raise HTTPException(status_code=404, detail="No PDF available for this paper")
+    
+    # Ensure the file exists
+    if not os.path.exists(paper.file_path):
+        raise HTTPException(status_code=404, detail="PDF file not found on server")
+    
+    # Get the file extension to determine content type
+    file_ext = os.path.splitext(paper.file_path)[1].lower()
+    
+    # Set appropriate content type
+    content_type = "application/pdf" if file_ext == ".pdf" else "application/octet-stream"
+    
+    # Generate a safe filename for download
+    safe_filename = f"{paper.title[:50].replace(' ', '_')}_{paper_id}{file_ext}"
+    safe_filename = "".join(c for c in safe_filename if c.isalnum() or c in ('_', '-', '.'))
+    
+    return FileResponse(
+        path=paper.file_path,
+        media_type=content_type,
+        filename=safe_filename,
+        headers={
+            "Content-Disposition": f"inline; filename=\"{safe_filename}\"",
+            "Cache-Control": "public, max-age=3600"  # Cache for 1 hour
+        }
+    )
 
 
 @router.get("/processing/status")

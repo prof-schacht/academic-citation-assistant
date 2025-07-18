@@ -26,6 +26,7 @@ export interface Paper {
   publicationTypes?: string[];
   publicationDate?: string;
   isOpenAccess?: boolean;
+  has_pdf?: boolean;
 }
 
 // Extended citation suggestion type

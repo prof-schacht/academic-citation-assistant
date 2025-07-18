@@ -16,6 +16,7 @@ from app.services.embedding import EmbeddingService
 from app.core.config import settings
 from app.utils.logging_utils import log_async_info, log_async_error
 from app.models.system_log import LogCategory
+from app.services.improved_metadata_extractor import ImprovedMetadataExtractor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class PaperProcessorService:
         self.markitdown = MarkItDown()
         self.embedding_service = EmbeddingService()
         self.chunking_service = TextChunkingService()
+        self.metadata_extractor = ImprovedMetadataExtractor()
     
     @classmethod
     async def process_paper(cls, paper_id: str, file_path: str) -> None:
@@ -68,8 +70,8 @@ class PaperProcessorService:
                 if not markdown_text:
                     raise ValueError("Failed to extract text from file")
                 
-                # Extract metadata from the markdown
-                metadata = processor._extract_metadata(markdown_text)
+                # Extract metadata from the markdown using improved extractor
+                metadata = processor.metadata_extractor.extract_metadata(markdown_text)
                 
                 # Update paper with extracted metadata
                 paper.title = metadata.get('title', paper.title)

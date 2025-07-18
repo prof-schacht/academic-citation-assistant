@@ -28,6 +28,34 @@ ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.doc', '.txt', '.rtf'}
 UPLOAD_DIR = settings.upload_dir
 
 
+def paper_to_response(paper: Paper, chunk_count: int = 0) -> PaperResponse:
+    """Convert a Paper model to PaperResponse, handling computed fields."""
+    return PaperResponse(
+        # Copy all base fields
+        id=paper.id,
+        title=paper.title,
+        authors=paper.authors,
+        abstract=paper.abstract,
+        year=paper.year,
+        journal=paper.journal,
+        doi=paper.doi,
+        arxiv_id=paper.arxiv_id,
+        pubmed_id=paper.pubmed_id,
+        semantic_scholar_id=paper.semantic_scholar_id,
+        citation_count=paper.citation_count,
+        reference_count=paper.reference_count,
+        source=paper.source,
+        is_processed=paper.is_processed,
+        processing_error=paper.processing_error,
+        created_at=paper.created_at,
+        updated_at=paper.updated_at,
+        # Computed fields
+        status='indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
+        chunk_count=chunk_count,
+        has_pdf=paper.has_pdf
+    )
+
+
 @router.post("/upload", response_model=PaperResponse)
 async def upload_paper(
     background_tasks: BackgroundTasks,
@@ -67,11 +95,7 @@ async def upload_paper(
     
     if existing_paper:
         # Return existing paper if duplicate with status
-        return PaperResponse(
-            **existing_paper.__dict__,
-            status='indexed' if existing_paper.is_processed else ('error' if existing_paper.processing_error else 'processing'),
-            chunk_count=0
-        )
+        return paper_to_response(existing_paper, chunk_count=0)
     
     # Save file to disk
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -101,11 +125,7 @@ async def upload_paper(
     )
     
     # Return paper with status
-    return PaperResponse(
-        **paper.__dict__,
-        status='processing',
-        chunk_count=0
-    )
+    return paper_to_response(paper, chunk_count=0)
 
 
 @router.get("/", response_model=PaperListResponse)
@@ -160,12 +180,9 @@ async def get_papers(
             word_count = len(paper.full_text.split())
             chunk_count = max(1, word_count // 500)
         
-        paper_dict = {
-            **paper.__dict__,
-            'status': 'indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
-            'chunk_count': chunk_count
-        }
-        paper_responses.append(PaperResponse(**paper_dict))
+        # Create response with computed fields
+        paper_response = paper_to_response(paper, chunk_count=chunk_count)
+        paper_responses.append(paper_response)
     
     return PaperListResponse(
         papers=paper_responses,
@@ -193,11 +210,7 @@ async def get_paper(
         chunk_count = max(1, word_count // 500)
     
     # Return with computed status
-    return PaperResponse(
-        **paper.__dict__,
-        status='indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
-        chunk_count=chunk_count
-    )
+    return paper_to_response(paper, chunk_count=chunk_count)
 
 
 @router.patch("/{paper_id}", response_model=PaperResponse)
@@ -227,11 +240,7 @@ async def update_paper(
         chunk_count = max(1, word_count // 500)
     
     # Return with computed status
-    return PaperResponse(
-        **paper.__dict__,
-        status='indexed' if paper.is_processed else ('error' if paper.processing_error else 'processing'),
-        chunk_count=chunk_count
-    )
+    return paper_to_response(paper, chunk_count=chunk_count)
 
 
 @router.delete("/{paper_id}")

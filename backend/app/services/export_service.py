@@ -208,11 +208,6 @@ class ExportService:
         
         # Convert document content
         if document.content:
-            # Add a comment to show what we're processing
-            import json
-            content_preview = json.dumps(document.content, indent=2)[:200]
-            latex_lines.append(f"% Document content preview: {content_preview}...")
-            
             content_latex = ExportService._convert_lexical_to_latex(document.content)
             latex_lines.append(content_latex)
         elif document.plain_text:

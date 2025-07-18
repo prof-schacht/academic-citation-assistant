@@ -1,5 +1,37 @@
 # Usage Guide - Academic Citation Assistant
 
+## Recent Updates (July 18, 2025)
+
+### NEW: Overleaf Integration 🚀
+Export your documents directly to Overleaf for professional LaTeX editing:
+
+#### How it Works
+- **One-Click Export**: Click the green "Open in Overleaf" button in the document editor
+- **Automatic Transfer**: Both your LaTeX document and BibTeX bibliography are transferred
+- **Ready to Compile**: Files are properly configured with `\bibliography{references}` for seamless compilation
+- **New Project Creation**: Each export creates a new Overleaf project
+
+#### Using the Feature
+1. Open any document with citations
+2. Click the **"Open in Overleaf"** button (green button with external link icon)
+3. If not logged into Overleaf, you'll be prompted to sign in
+4. Your document opens in a new Overleaf project with:
+   - `main.tex` - Your document content with citations
+   - `references.bib` - Your bibliography entries
+5. Click "Recompile" in Overleaf to generate your PDF
+
+#### Benefits
+- **Professional Typesetting**: Use Overleaf's LaTeX environment for final formatting
+- **Collaboration**: Share the Overleaf project with co-authors
+- **Version Control**: Overleaf tracks changes and versions
+- **PDF Export**: Generate publication-ready PDFs
+
+#### Technical Details
+- Uses Overleaf's form submission API
+- Automatically saves document before export
+- Bibliography filename standardized to `references.bib` for consistency
+- Compatible with all LaTeX compilers (pdfLaTeX, XeLaTeX, LuaLaTeX)
+
 ## Recent Updates (July 17, 2025)
 
 ### Bug Fix: Content Restoration on Tab Switch (v0.0.2) 🔧
@@ -728,9 +760,17 @@ ws://localhost:8000/ws/citations?user_id={user_id}
 
 ---
 
-Last updated: 2025-07-17
+Last updated: 2025-07-18
 
 ## Version History
+
+### v0.2.0 - Overleaf Integration
+- NEW: Added "Open in Overleaf" button for one-click export to Overleaf
+- Feature: Exports both LaTeX document and BibTeX bibliography to new Overleaf project
+- Feature: Automatic document save before export
+- Feature: Bibliography reference uses standardized `references.bib` filename
+- Improvement: Loading state indicator while exporting
+- Technical: Uses Overleaf's form submission API for project creation
 
 ### v0.1.3 - Citation Key Format Consistency
 - Fixed: BibTeX export now generates citation keys without colons to match LaTeX export

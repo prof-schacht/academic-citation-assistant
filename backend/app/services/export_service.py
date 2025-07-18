@@ -166,7 +166,8 @@ class ExportService:
         db: AsyncSession,
         document_id: uuid.UUID,
         user_id: uuid.UUID,
-        template: str = "article"
+        template: str = "article",
+        bib_filename: Optional[str] = None
     ) -> str:
         """Export document content to LaTeX format."""
         # Get document
@@ -223,10 +224,16 @@ class ExportService:
         has_papers = result.scalar_one_or_none() is not None
         
         if has_papers:
+            # Use custom bibliography filename if provided, otherwise use document title
+            if bib_filename:
+                bibliography_ref = bib_filename
+            else:
+                bibliography_ref = f"{document.title.replace(' ', '_')}_bibliography"
+            
             latex_lines.extend([
                 "",
                 "\\bibliographystyle{plain}",
-                f"\\bibliography{{{document.title.replace(' ', '_')}_bibliography}}",
+                f"\\bibliography{{{bibliography_ref}}}",
                 ""
             ])
         

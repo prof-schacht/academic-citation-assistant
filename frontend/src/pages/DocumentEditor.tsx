@@ -6,6 +6,7 @@ import DocumentPapers from '../components/DocumentPapersSimple';
 import ExportDialog from '../components/ExportDialog';
 import { documentService } from '../services/documentService';
 import { documentPaperService } from '../services/documentPaperService';
+import { OverleafService } from '../services/overleafService';
 import type { DocumentType } from '../services/documentService';
 import type { EditorState } from 'lexical';
 import type { CitationSuggestion } from '../services/websocketService';
@@ -29,6 +30,7 @@ const DocumentEditor: React.FC = () => {
   const [bibliographyKey, setBibliographyKey] = useState(0); // Force refresh of bibliography
   const [bibliographyPaperIds, setBibliographyPaperIds] = useState<Set<string>>(new Set());
   const [citedPaperIds, setCitedPaperIds] = useState<Set<string>>(new Set());
+  const [isExportingToOverleaf, setIsExportingToOverleaf] = useState(false);
   const editorStateRef = useRef<EditorState | null>(null);
   const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
@@ -308,6 +310,35 @@ const DocumentEditor: React.FC = () => {
     }
   };
 
+  const handleOpenInOverleaf = async () => {
+    if (!document) return;
+    
+    setIsExportingToOverleaf(true);
+    
+    try {
+      // Save current content before exporting
+      if (editorSaveRef.current) {
+        editorSaveRef.current();
+        // Wait a moment for save to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      await OverleafService.exportToOverleaf({
+        documentId: document.id,
+        documentTitle: document.title,
+        useReferencesFilename: true
+      });
+      
+      // Show success (Overleaf opened in new tab)
+      console.log('Document exported to Overleaf successfully');
+    } catch (error) {
+      console.error('Failed to export to Overleaf:', error);
+      alert('Failed to export to Overleaf. Please try again.');
+    } finally {
+      setIsExportingToOverleaf(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -364,6 +395,29 @@ const DocumentEditor: React.FC = () => {
               className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
             >
               Export
+            </button>
+            <button
+              onClick={handleOpenInOverleaf}
+              disabled={isExportingToOverleaf}
+              className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+            >
+              {isExportingToOverleaf ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Opening...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                  </svg>
+                  <span>Open in Overleaf</span>
+                </>
+              )}
             </button>
             <button
               onClick={() => setShowCitationPanel(!showCitationPanel)}

@@ -206,12 +206,15 @@ async def export_document_bibtex(
 async def export_document_latex(
     document_id: uuid.UUID,
     template: str = Query("article", description="LaTeX document class template"),
+    bib_filename: Optional[str] = Query(None, description="Custom bibliography filename (without .bib extension)"),
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ):
     """Export document content to LaTeX format."""
     try:
-        latex_content = await ExportService.export_document_latex(db, document_id, user_id, template)
+        latex_content = await ExportService.export_document_latex(
+            db, document_id, user_id, template, bib_filename
+        )
         return PlainTextResponse(
             content=latex_content,
             media_type="application/x-tex",

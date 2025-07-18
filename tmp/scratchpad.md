@@ -1,23 +1,51 @@
-# Academic Citation Assistant - Content Restoration Fix
+# Development Scratchpad
 
-## Issue Analysis
-The saved content is not being restored when switching back to the editor tab because:
+## Overleaf Integration Manual Testing Results
 
-1. The Editor component is unmounted when switching to other tabs (bibliography/citations)
-2. When the Editor remounts, it uses the initial document.content value which is stale
-3. The LoadInitialContentPlugin only runs once with the initial content
+**Date**: 2025-07-18
 
-## Solution
-We need to reload the document content when switching back to the editor tab to ensure we have the latest saved content.
+### Test Results Summary
 
-## Implementation Steps
-1. Add a mechanism to reload document content when switching to editor tab
-2. Update the Editor component to handle content updates properly
-3. Ensure the LoadInitialContentPlugin can handle content updates
+✅ **Button Appearance**
+- The "Open in Overleaf" button appears correctly in the document header
+- Button styling: Green background (rgb(22, 163, 74)) with white text
+- Button classes: `px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1`
+- Button is positioned between the Export button and Hide Citations button
 
-## Testing
-After implementation, test by:
-1. Creating/loading a document
-2. Adding content in the editor
-3. Switching to bibliography tab (content should auto-save)
-4. Switching back to editor tab (content should be restored)
+✅ **Console Output**
+- No errors in browser console
+- Successfully shows export process:
+  - "[Editor] Manual save triggered"
+  - "[Editor] Immediate save requested"
+  - "Document saved: {root: Object}"
+  - "Document exported to Overleaf successfully"
+
+✅ **Overleaf Navigation**
+- Clicking the button successfully opens a new browser tab
+- New tab navigates to `https://www.overleaf.com/docs`
+- User is redirected to login page at `https://www.overleaf.com/login` (expected behavior when not logged in)
+- No JavaScript errors on Overleaf side
+
+❓ **File Transfer** 
+- Cannot verify if files (main.tex and references.bib) are transferred without logging into Overleaf
+- The API call appears successful based on console logs
+
+### Screenshots Captured
+1. `1-homepage.png` - Landing page
+2. `2-after-get-started.png` - Documents list view
+3. `3-document-view.png` - Document editor with Overleaf button visible
+4. `4-header-with-overleaf-button.png` - Close-up of header buttons
+5. `5-overleaf-page.png` - Overleaf login page
+
+### Recommendations for Complete Testing
+To fully verify the integration:
+1. Create an Overleaf account or use existing credentials
+2. Log into Overleaf before clicking the button
+3. Verify that both `main.tex` and `references.bib` files are created in the new project
+4. Check that the bibliography reference in main.tex uses `\bibliography{references}`
+5. Attempt to compile the document in Overleaf
+
+### Technical Notes
+- The integration uses Overleaf's `/docs` endpoint which automatically creates a new project
+- The document content is properly saved before export
+- The citation plugin continues to work during the export process

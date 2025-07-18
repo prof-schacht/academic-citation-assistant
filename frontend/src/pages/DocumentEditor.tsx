@@ -6,6 +6,7 @@ import CitationPanel from '../components/CitationPanel/CitationPanel';
 import DocumentPapers from '../components/DocumentPapersSimple';
 import ExportDialog from '../components/ExportDialog';
 import PdfViewer from '../components/PdfViewer';
+import PaperUploadModal from '../components/PaperUploadModal';
 import { documentService } from '../services/documentService';
 import { documentPaperService } from '../services/documentPaperService';
 import { OverleafService } from '../services/overleafService';
@@ -24,6 +25,7 @@ const DocumentEditor: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCitationPanel, setShowCitationPanel] = useState(true);
   const [activeTab, setActiveTab] = useState<'editor' | 'bibliography' | 'citations'>('editor');
   const [citationSuggestions, setCitationSuggestions] = useState<CitationSuggestion[]>([]);
@@ -406,6 +408,16 @@ const DocumentEditor: React.FC = () => {
           </div>
           <div className="flex items-center space-x-4">
             <button
+              onClick={() => setShowUploadModal(true)}
+              className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center space-x-1"
+              title="Upload papers to library"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span>Upload Papers</span>
+            </button>
+            <button
               onClick={() => setShowExportDialog(true)}
               className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
             >
@@ -636,6 +648,16 @@ const DocumentEditor: React.FC = () => {
         documentTitle={document.title}
         documentId={document.id}
         editorState={editorStateRef.current}
+      />
+      
+      {/* Paper Upload Modal */}
+      <PaperUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploadComplete={() => {
+          // Papers have been uploaded successfully
+          console.log('Papers uploaded successfully');
+        }}
       />
     </div>
   );

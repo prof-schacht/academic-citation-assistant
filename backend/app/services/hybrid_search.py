@@ -142,8 +142,16 @@ class HybridSearchService:
         rerank_top_k: int = 100
     ):
         self.embedding_service = embedding_service
-        self.vector_weight = vector_weight
-        self.bm25_weight = bm25_weight
+        
+        # Normalize weights if they don't sum to 1
+        weight_sum = vector_weight + bm25_weight
+        if abs(weight_sum - 1.0) > 0.001:
+            self.vector_weight = vector_weight / weight_sum
+            self.bm25_weight = bm25_weight / weight_sum
+        else:
+            self.vector_weight = vector_weight
+            self.bm25_weight = bm25_weight
+            
         self.rerank_top_k = rerank_top_k
         self.bm25_scorer = BM25Scorer()
         self._is_fitted = False

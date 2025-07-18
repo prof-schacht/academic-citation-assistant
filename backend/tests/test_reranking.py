@@ -22,11 +22,16 @@ class TestCrossEncoderReranker:
         model.to = Mock(return_value=model)
         model.eval = Mock()
         
-        # Mock model output
-        logits = torch.tensor([[0.2, 0.8]])  # Binary classification scores
-        output = Mock()
-        output.logits = logits
-        model.return_value = output
+        def model_forward(*args, **kwargs):
+            # Check batch size from input_ids
+            batch_size = kwargs.get('input_ids', args[0] if args else None).shape[0]
+            # Return appropriate number of logits
+            logits = torch.tensor([[0.2, 0.8]] * batch_size)
+            output = Mock()
+            output.logits = logits
+            return output
+        
+        model.side_effect = model_forward
         
         return model
     
@@ -35,15 +40,24 @@ class TestCrossEncoderReranker:
         """Create a mock tokenizer."""
         tokenizer = Mock()
         
-        # Mock tokenizer output
-        inputs = {
-            'input_ids': torch.tensor([[101, 102, 103]]),
-            'attention_mask': torch.tensor([[1, 1, 1]])
-        }
-        tokenizer.return_value = Mock(
-            to=Mock(return_value=inputs),
-            **inputs
-        )
+        def tokenizer_call(texts, *args, **kwargs):
+            # Handle both single and batch inputs
+            if isinstance(texts, list):
+                batch_size = len(texts)
+            else:
+                batch_size = 1
+            
+            # Mock tokenizer output with appropriate batch size
+            inputs = {
+                'input_ids': torch.tensor([[101, 102, 103]] * batch_size),
+                'attention_mask': torch.tensor([[1, 1, 1]] * batch_size)
+            }
+            return Mock(
+                to=Mock(return_value=inputs),
+                **inputs
+            )
+        
+        tokenizer.side_effect = tokenizer_call
         
         return tokenizer
     

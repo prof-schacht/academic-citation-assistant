@@ -190,6 +190,11 @@ class TestSearchResult:
 class TestHybridSearchIntegration:
     """Integration tests for hybrid search."""
     
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock database session."""
+        return Mock(spec=AsyncSession)
+    
     @pytest.mark.asyncio
     async def test_hybrid_search_full_flow(self, mock_session):
         """Test full hybrid search flow."""

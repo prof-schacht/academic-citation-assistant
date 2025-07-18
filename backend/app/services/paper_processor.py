@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models import Paper, PaperChunk
 from app.services.embedding import EmbeddingService
-# TextChunkingService is defined in this file
+from app.services.advanced_chunking import AdvancedChunkingService, ChunkingStrategy, EnhancedTextChunk
 from app.core.config import settings
 from app.utils.logging_utils import log_async_info, log_async_error
 from app.models.system_log import LogCategory
@@ -29,7 +29,13 @@ class PaperProcessorService:
     def __init__(self):
         self.markitdown = MarkItDown()
         self.embedding_service = EmbeddingService()
-        self.chunking_service = TextChunkingService()
+        self.chunking_service = AdvancedChunkingService(
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+            min_chunk_size=100,
+            max_chunk_size=1000,
+            embedding_model=None  # Will use existing embedding service
+        )
         self.metadata_extractor = ImprovedMetadataExtractor()
         self.external_metadata_service = MetadataFetcherService(email="support@academic-citation.com")
     
@@ -112,12 +118,15 @@ class PaperProcessorService:
                 paper.metadata_source = metadata.get('source', 'text_extraction')
                 paper.full_text = markdown_text
                 
-                # Chunk the text (250 words with 50-word overlap for better granularity)
+                # Chunk the text using advanced chunking (sentence-aware by default)
                 chunks = processor.chunking_service.chunk_text(
                     markdown_text,
-                    chunk_size=250,  # Reduced from 500 for better search granularity
-                    overlap_size=50,
-                    respect_sentences=True
+                    strategy=ChunkingStrategy.SENTENCE_AWARE,  # Use sentence-aware chunking
+                    metadata={
+                        'paper_id': paper_id,
+                        'title': paper.title,
+                        'authors': paper.authors
+                    }
                 )
                 
                 logger.info(f"Created {len(chunks)} chunks for paper {paper_id}")
@@ -133,18 +142,22 @@ class PaperProcessorService:
                 paper_chunks = []
                 for i, chunk in enumerate(chunks):
                     # Generate embedding for this chunk
-                    chunk_embedding = await processor.embedding_service.generate_embedding(chunk.content)
+                    chunk_embedding = await processor.embedding_service.generate_embedding(chunk.text)
                     
                     # Create PaperChunk record
                     paper_chunk = PaperChunk(
                         paper_id=UUID(paper_id),
-                        content=chunk.content,
-                        chunk_index=i,
+                        content=chunk.text,
+                        chunk_index=chunk.chunk_index,
                         start_char=chunk.start_char,
                         end_char=chunk.end_char,
                         word_count=chunk.word_count,
                         embedding=chunk_embedding,
-                        section_title=chunk.section_title
+                        section_title=chunk.section,
+                        chunk_type=chunk.chunk_type,
+                        sentence_count=chunk.sentence_count,
+                        semantic_score=chunk.semantic_score,
+                        chunk_metadata=chunk.metadata
                     )
                     db.add(paper_chunk)
                     paper_chunks.append(paper_chunk)
@@ -154,7 +167,7 @@ class PaperProcessorService:
                         logger.info(f"Processed {i + 1}/{len(chunks)} chunks for paper {paper_id}")
                 
                 # Also generate and store a main embedding for the paper (abstract or first chunk)
-                embedding_text = paper.abstract if paper.abstract else chunks[0].content if chunks else ""
+                embedding_text = paper.abstract if paper.abstract else chunks[0].text if chunks else ""
                 if embedding_text:
                     embedding = await processor.embedding_service.generate_embedding(embedding_text)
                     paper.embedding = embedding

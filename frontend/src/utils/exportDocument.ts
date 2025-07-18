@@ -31,10 +31,34 @@ export async function exportDocument(
     }
     
     case 'txt': {
-      // Plain text
+      // Plain text with citations
       content = editorState.read(() => {
+        // Process nodes to convert citations to text format
+        const processNode = (node: any): string => {
+          const type = node.getType();
+          
+          // Handle citation nodes
+          if (type === 'citation') {
+            const citationKey = node.getCitationKey();
+            return `\\cite{${citationKey}}`;
+          }
+          
+          // Handle other nodes with children
+          const children = node.getChildren ? node.getChildren() : [];
+          if (children.length > 0) {
+            return children.map(processNode).join('');
+          }
+          
+          // Default to text content
+          return node.getTextContent() || '';
+        };
+        
         const root = editorState._nodeMap.get('root');
-        const text = root?.getTextContent() || '';
+        if (!root) return options.title;
+        
+        const children = (root as any).getChildren ? (root as any).getChildren() : [];
+        const text = children.map(processNode).join('\n');
+        
         return `${options.title}\n${'='.repeat(options.title.length)}\n\n${text}`;
       });
       mimeType = 'text/plain';
@@ -62,42 +86,78 @@ async function convertToMarkdown(editorState: EditorState, title: string): Promi
   return editorState.read(() => {
     let markdown = `# ${title}\n\n`;
     
-    // Simple conversion - this would need to be more sophisticated
-    // to handle all node types properly
-    const root = editorState._nodeMap.get('root');
-    if (!root) return markdown;
-
-    const children = (root as any).getChildren ? (root as any).getChildren() : [];
-    children.forEach((node: any) => {
+    // Process each node recursively to handle nested content and citations
+    const processNode = (node: any): string => {
       const type = node.getType();
+      
+      // Handle citation nodes
+      if (type === 'citation') {
+        const citationKey = node.getCitationKey();
+        return `\\cite{${citationKey}}`;
+      }
+      
+      // Handle text nodes with formatting
+      if (type === 'text') {
+        let text = node.getTextContent();
+        const format = node.getFormat();
+        
+        // Apply formatting
+        if (format & 1) text = `**${text}**`; // Bold
+        if (format & 2) text = `*${text}*`; // Italic
+        if (format & 8) text = `~~${text}~~`; // Strikethrough
+        if (format & 16) text = `\`${text}\``; // Code
+        
+        return text;
+      }
+      
+      // Handle paragraph nodes
+      if (type === 'paragraph') {
+        const children = node.getChildren ? node.getChildren() : [];
+        const content = children.map(processNode).join('');
+        return content ? `${content}\n\n` : '';
+      }
+      
+      // Handle other node types
       const text = node.getTextContent();
       
       switch (type) {
         case 'heading':
           const tag = (node as any).getTag();
           const level = tag === 'h1' ? '#' : tag === 'h2' ? '##' : '###';
-          markdown += `${level} ${text}\n\n`;
-          break;
+          const children = node.getChildren ? node.getChildren() : [];
+          const headingContent = children.map(processNode).join('');
+          return `${level} ${headingContent}\n\n`;
         case 'list':
           const listType = (node as any).getListType();
           const listChildren = node.getChildren ? node.getChildren() : [];
-          listChildren.forEach((item: any, index: number) => {
+          return listChildren.map((item: any, index: number) => {
             const prefix = listType === 'bullet' ? '-' : `${index + 1}.`;
-            markdown += `${prefix} ${item.getTextContent()}\n`;
-          });
-          markdown += '\n';
-          break;
+            const itemChildren = item.getChildren ? item.getChildren() : [];
+            const itemContent = itemChildren.map(processNode).join('');
+            return `${prefix} ${itemContent}`;
+          }).join('\n') + '\n\n';
         case 'quote':
-          markdown += `> ${text}\n\n`;
-          break;
+          const quoteChildren = node.getChildren ? node.getChildren() : [];
+          const quoteContent = quoteChildren.map(processNode).join('');
+          return `> ${quoteContent}\n\n`;
         case 'code':
-          markdown += `\`\`\`\n${text}\n\`\`\`\n\n`;
-          break;
+          return `\`\`\`\n${text}\n\`\`\`\n\n`;
         default:
-          if (text.trim()) {
-            markdown += `${text}\n\n`;
+          // For other nodes, process children if they exist
+          const defaultChildren = node.getChildren ? node.getChildren() : [];
+          if (defaultChildren.length > 0) {
+            return defaultChildren.map(processNode).join('');
           }
+          return text.trim() ? `${text}\n\n` : '';
       }
+    };
+    
+    const root = editorState._nodeMap.get('root');
+    if (!root) return markdown;
+
+    const children = (root as any).getChildren ? (root as any).getChildren() : [];
+    children.forEach((node: any) => {
+      markdown += processNode(node);
     });
     
     return markdown;

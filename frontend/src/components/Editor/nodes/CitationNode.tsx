@@ -116,6 +116,11 @@ export class CitationNode extends DecoratorNode<React.JSX.Element> {
     };
   }
 
+  getTextContent(): string {
+    // Return LaTeX citation format for export
+    return `\\cite{${this.__citationKey}}`;
+  }
+
   decorate(): React.JSX.Element {
     return (
       <Suspense fallback={null}>

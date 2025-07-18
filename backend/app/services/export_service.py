@@ -208,6 +208,11 @@ class ExportService:
         
         # Convert document content
         if document.content:
+            # Add a comment to show what we're processing
+            import json
+            content_preview = json.dumps(document.content, indent=2)[:200]
+            latex_lines.append(f"% Document content preview: {content_preview}...")
+            
             content_latex = ExportService._convert_lexical_to_latex(document.content)
             latex_lines.append(content_latex)
         elif document.plain_text:
@@ -267,6 +272,7 @@ class ExportService:
         # to handle all Lexical node types properly
         latex_parts = []
         
+        
         if "root" in content and "children" in content["root"]:
             for node in content["root"]["children"]:
                 latex_part = ExportService._convert_lexical_node_to_latex(node)
@@ -276,21 +282,49 @@ class ExportService:
         return "\n\n".join(latex_parts)
     
     @staticmethod
+    def _convert_child_node_to_latex(node: Dict[str, Any]) -> str:
+        """Convert a child node to LaTeX, handling different node types."""
+        node_type = node.get("type", "")
+        
+        if node_type == "text":
+            text = node.get("text", "")
+            # Handle text formatting
+            if node.get("format", 0) & 1:  # Bold
+                text = f"\\textbf{{{ExportService._escape_latex(text)}}}"
+            elif node.get("format", 0) & 2:  # Italic
+                text = f"\\textit{{{ExportService._escape_latex(text)}}}"
+            else:
+                text = ExportService._escape_latex(text)
+            return text
+        
+        elif node_type == "citation":
+            # Handle citation nodes
+            # Try different possible field names for the citation key
+            citation_key = node.get("citationKey") or node.get("citation_key") or node.get("key") or ""
+            if citation_key:
+                return f"\\cite{{{citation_key}}}"
+            # Fallback to paperId if no citation key
+            paper_id = node.get("paperId") or node.get("paper_id") or ""
+            if paper_id:
+                return f"\\cite{{{paper_id}}}"
+            # Last resort - use any available identifier
+            return f"\\cite{{unknown}}"
+        
+        # For other types, try to extract text content
+        return ExportService._get_text_from_node(node)
+    
+    @staticmethod
     def _convert_lexical_node_to_latex(node: Dict[str, Any]) -> str:
         """Convert a single Lexical node to LaTeX."""
         node_type = node.get("type", "")
         
+        
         if node_type == "paragraph":
             text_parts = []
             for child in node.get("children", []):
-                if child.get("type") == "text":
-                    text = child.get("text", "")
-                    # Handle text formatting
-                    if child.get("format", 0) & 1:  # Bold
-                        text = f"\\textbf{{{text}}}"
-                    if child.get("format", 0) & 2:  # Italic
-                        text = f"\\textit{{{text}}}"
-                    text_parts.append(ExportService._escape_latex(text))
+                child_latex = ExportService._convert_child_node_to_latex(child)
+                if child_latex:
+                    text_parts.append(child_latex)
             return " ".join(text_parts)
         
         elif node_type == "heading":
@@ -303,26 +337,93 @@ class ExportService:
                 5: "\\subparagraph"
             }
             command = section_commands.get(level, "\\paragraph")
-            text = ExportService._get_text_from_node(node)
-            return f"{command}{{{ExportService._escape_latex(text)}}}"
+            # Process heading children to preserve citations
+            text_parts = []
+            for child in node.get("children", []):
+                child_latex = ExportService._convert_child_node_to_latex(child)
+                if child_latex:
+                    text_parts.append(child_latex)
+            text = " ".join(text_parts) if text_parts else ExportService._get_text_from_node(node)
+            return f"{command}{{{text}}}"
         
         elif node_type == "list":
             list_type = node.get("listType", "bullet")
             env = "itemize" if list_type == "bullet" else "enumerate"
             items = []
             for child in node.get("children", []):
-                item_text = ExportService._get_text_from_node(child)
-                items.append(f"  \\item {ExportService._escape_latex(item_text)}")
+                # List items might be wrapped in listitem nodes
+                if child.get("type") == "listitem":
+                    # Process listitem's children
+                    item_parts = []
+                    for grandchild in child.get("children", []):
+                        if grandchild.get("type") == "paragraph":
+                            # Process paragraph's children
+                            for ggchild in grandchild.get("children", []):
+                                ggchild_latex = ExportService._convert_child_node_to_latex(ggchild)
+                                if ggchild_latex:
+                                    item_parts.append(ggchild_latex)
+                        else:
+                            grandchild_latex = ExportService._convert_child_node_to_latex(grandchild)
+                            if grandchild_latex:
+                                item_parts.append(grandchild_latex)
+                    item_text = " ".join(item_parts)
+                else:
+                    # Process other types of list children
+                    item_parts = []
+                    for grandchild in child.get("children", []):
+                        grandchild_latex = ExportService._convert_child_node_to_latex(grandchild)
+                        if grandchild_latex:
+                            item_parts.append(grandchild_latex)
+                    item_text = " ".join(item_parts) if item_parts else ExportService._get_text_from_node(child)
+                items.append(f"  \\item {item_text}")
             
             return f"\\begin{{{env}}}\n" + "\n".join(items) + f"\n\\end{{{env}}}"
         
         elif node_type == "quote":
-            text = ExportService._get_text_from_node(node)
-            return f"\\begin{{quote}}\n{ExportService._escape_latex(text)}\n\\end{{quote}}"
+            # Process quote children to preserve citations
+            text_parts = []
+            for child in node.get("children", []):
+                child_latex = ExportService._convert_child_node_to_latex(child)
+                if child_latex:
+                    text_parts.append(child_latex)
+            text = " ".join(text_parts) if text_parts else ExportService._escape_latex(ExportService._get_text_from_node(node))
+            return f"\\begin{{quote}}\n{text}\n\\end{{quote}}"
         
         elif node_type == "code":
             text = node.get("text", "")
             return f"\\begin{{verbatim}}\n{text}\n\\end{{verbatim}}"
+        
+        elif node_type == "citation":
+            # Handle citation nodes at the root level
+            # Try different possible field names for the citation key
+            citation_key = node.get("citationKey") or node.get("citation_key") or node.get("key") or ""
+            if citation_key:
+                return f"\\cite{{{citation_key}}}"
+            # Fallback to paperId if no citation key
+            paper_id = node.get("paperId") or node.get("paper_id") or ""
+            if paper_id:
+                return f"\\cite{{{paper_id}}}"
+            # Last resort - use any available identifier
+            return f"\\cite{{unknown}}"
+        
+        elif node_type == "listitem":
+            # Handle list item nodes specifically
+            item_parts = []
+            for child in node.get("children", []):
+                child_latex = ExportService._convert_lexical_node_to_latex(child)
+                if child_latex:
+                    item_parts.append(child_latex)
+            return " ".join(item_parts)
+        
+        # For other node types, process children if they exist
+        children = node.get("children", [])
+        if children:
+            child_parts = []
+            for child in children:
+                child_latex = ExportService._convert_lexical_node_to_latex(child)
+                if child_latex:
+                    child_parts.append(child_latex)
+            return " ".join(child_parts)
         
         return ""
     

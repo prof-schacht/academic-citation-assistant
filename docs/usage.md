@@ -732,6 +732,14 @@ Last updated: 2025-07-17
 
 ## Version History
 
+### v0.1.1 - Citation Export Fix
+- Fixed: Citations now properly export with LaTeX format `\cite{citationKey}` in all export formats
+- Fixed: Markdown export now preserves citations instead of converting them to plain text
+- Fixed: Plain text export includes `\cite{citationKey}` format for citations
+- Fixed: LaTeX backend export properly handles citation nodes in all content types (paragraphs, headings, lists, quotes)
+- Improvement: Citations maintain their format across different export types for consistency
+- Technical: Added recursive node processing to preserve citations during export
+
 ### v0.1.0 - Citation Badge Persistence
 - Fixed: "Cited" badges now persist when document is closed and reopened
 - Added: Document content parsing to identify cited papers on load

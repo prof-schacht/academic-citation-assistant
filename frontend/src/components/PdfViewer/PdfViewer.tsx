@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
-import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { api } from '../../services/api';
 import type { CitationSuggestion } from '../../types';
+import PdfViewerErrorBoundary from './ErrorBoundary';
 
 // Import styles
 import '@react-pdf-viewer/core/lib/styles/index.css';
-import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 interface PdfViewerProps {
   paper: CitationSuggestion | null;
@@ -18,15 +17,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Create default layout plugin instance
-  const defaultLayoutPluginInstance = defaultLayoutPlugin({
-    sidebarTabs: {
-      // Show only thumbnails and bookmarks tabs
-      showThumbnailsTab: true,
-      showBookmarksTab: true,
-      showAttachmentsTab: false,
-    },
-  });
 
   useEffect(() => {
     if (!paper) {
@@ -68,7 +58,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white border-l border-gray-200">
+    <PdfViewerErrorBoundary onError={(error) => {
+      console.error('PDF Viewer crashed:', error);
+      setError('Failed to render PDF');
+      setPdfUrl(null);
+    }}>
+      <div className="h-full flex flex-col bg-white border-l border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex-1 min-w-0">
@@ -127,18 +122,17 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
 
         {pdfUrl && !loading && !error && (
           <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
-            <Viewer
-              fileUrl={pdfUrl}
-              plugins={[defaultLayoutPluginInstance]}
-              defaultScale={1}
-              theme={{
-                theme: 'light',
-              }}
-            />
+            <div className="h-full">
+              <Viewer
+                fileUrl={pdfUrl}
+                defaultScale={1}
+              />
+            </div>
           </Worker>
         )}
       </div>
     </div>
+    </PdfViewerErrorBoundary>
   );
 };
 

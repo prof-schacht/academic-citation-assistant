@@ -91,6 +91,29 @@ class PaperService {
       throw error;
     }
   }
+  
+  // Alias for consistency with modal
+  async upload(file: File, onProgress?: (progress: number) => void): Promise<Paper> {
+    if (onProgress) {
+      // Create a temporary progress listener
+      const unsubscribe = this.onUploadProgress((progress) => {
+        if (progress.fileName === file.name) {
+          onProgress(progress.progress);
+        }
+      });
+      
+      try {
+        const result = await this.uploadPaper(file);
+        unsubscribe();
+        return result;
+      } catch (error) {
+        unsubscribe();
+        throw error;
+      }
+    }
+    
+    return this.uploadPaper(file);
+  }
 
   async getPaper(paperId: string): Promise<Paper> {
     const response = await api.get(`/papers/${paperId}`);

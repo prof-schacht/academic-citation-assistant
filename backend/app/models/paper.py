@@ -82,7 +82,13 @@ class Paper(Base):
     @property
     def has_pdf(self) -> bool:
         """Check if this paper has a PDF file available."""
-        return self.file_path is not None
+        if not self.file_path:
+            return False
+        
+        # Check if the file has a PDF extension
+        import os
+        file_ext = os.path.splitext(self.file_path)[1].lower()
+        return file_ext == '.pdf'
     
     def __repr__(self) -> str:
         return f"<Paper(id={self.id}, title={self.title[:50]}...)>"

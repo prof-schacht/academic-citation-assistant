@@ -16,7 +16,28 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scale, setScale] = useState(1.0);
 
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setScale(prev => Math.min(3, prev + 0.25));
+        } else if (e.key === '-') {
+          e.preventDefault();
+          setScale(prev => Math.max(0.5, prev - 0.25));
+        } else if (e.key === '0') {
+          e.preventDefault();
+          setScale(1);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!paper) {
@@ -74,9 +95,49 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
             {paper.authors?.join(', ')} {paper.year && `(${paper.year})`}
           </p>
         </div>
+        
+        {/* Zoom Controls */}
+        <div className="flex items-center space-x-2 mx-4">
+          <button
+            onClick={() => setScale(Math.max(0.5, scale - 0.25))}
+            className="p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Zoom out"
+            disabled={scale <= 0.5}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+            </svg>
+          </button>
+          
+          <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center">
+            {Math.round(scale * 100)}%
+          </span>
+          
+          <button
+            onClick={() => setScale(Math.min(3, scale + 0.25))}
+            className="p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Zoom in"
+            disabled={scale >= 3}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => setScale(1)}
+            className="p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
+            title="Reset zoom"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
+        </div>
+        
         <button
           onClick={onClose}
-          className="ml-4 p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+          className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
           title="Close PDF viewer"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,7 +186,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
             <div className="h-full">
               <Viewer
                 fileUrl={pdfUrl}
-                defaultScale={1}
+                defaultScale={scale}
+                scale={scale}
               />
             </div>
           </Worker>

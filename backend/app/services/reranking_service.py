@@ -189,9 +189,13 @@ class RerankingService:
         rerank_weight: float = 0.6,
         original_weight: float = 0.4,
         context_weight: float = 0.2,
-        use_cache: bool = True
+        use_cache: bool = True,
+        batch_size: int = 32
     ):
-        self.cross_encoder = CrossEncoderReranker(model_name=cross_encoder_model)
+        self.cross_encoder = CrossEncoderReranker(
+            model_name=cross_encoder_model,
+            batch_size=batch_size
+        )
         self.rerank_weight = rerank_weight
         self.original_weight = original_weight
         self.context_weight = context_weight
@@ -224,6 +228,11 @@ class RerankingService:
         if not results:
             return []
         
+        # Limit results to top_k BEFORE reranking for efficiency
+        if top_k and len(results) > top_k:
+            results = results[:top_k]
+            logger.info(f"Limited results to top {top_k} for reranking")
+        
         # Extract texts and prepare for reranking
         texts = []
         for result in results:
@@ -249,11 +258,12 @@ class RerankingService:
         rerank_scores = await self.cross_encoder.score_batch_async(query, texts)
         
         # Calculate context scores if context provided
+        # DISABLED for performance - context scoring doubles reranking time
         context_scores = None
-        if query_context:
-            context_scores = await self._calculate_context_scores(
-                query_context, results
-            )
+        # if query_context:
+        #     context_scores = await self._calculate_context_scores(
+        #         query_context, results
+        #     )
         
         # Combine scores and create reranked results
         reranked_results = []

@@ -709,7 +709,7 @@ const DocumentEditor: React.FC = () => {
       
       {/* Version indicator */}
       <div className="fixed bottom-4 right-4 text-xs text-gray-400 bg-gray-900 px-2 py-1 rounded z-50">
-        v0.2.4
+        v0.2.6
       </div>
     </div>
   );

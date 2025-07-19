@@ -59,7 +59,7 @@ export function CitationSettings({ config, onConfigChange }: CitationSettingsPro
             <input
               id="reranking"
               type="checkbox"
-              checked={config.useReranking ?? true}
+              checked={config.useReranking ?? false}
               onChange={(e) => handleConfigChange({ useReranking: e.target.checked })}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
@@ -94,7 +94,7 @@ export function CitationSettings({ config, onConfigChange }: CitationSettingsPro
           )}
           {config.useReranking && (
             <p className="text-xs text-gray-500">
-              Smart reranking uses AI to improve relevance but may add 200-500ms latency.
+              Smart reranking uses AI to improve relevance but may add 2-5 seconds latency.
             </p>
           )}
         </div>

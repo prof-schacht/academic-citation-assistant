@@ -132,17 +132,17 @@ async def websocket_citation_endpoint(
                         "type": "suggestions",
                         "results": [
                             {
-                                "paperId": s.paper_id,
+                                "paperId": str(s.paper_id),  # Convert UUID to string
                                 "title": s.title,
                                 "authors": s.authors,
                                 "year": s.year,
                                 "abstract": s.abstract,
-                                "confidence": s.confidence,
+                                "confidence": float(s.confidence) if s.confidence is not None else 0.0,
                                 "citationStyle": s.citation_style,
                                 "displayText": s.display_text,
                                 "chunkText": s.chunk_text[:200] + "..." if len(s.chunk_text) > 200 else s.chunk_text,
-                                "chunkIndex": s.chunk_index,
-                                "chunkId": s.chunk_id,
+                                "chunkIndex": int(s.chunk_index) if s.chunk_index is not None else 0,
+                                "chunkId": str(s.chunk_id) if s.chunk_id else '',  # Convert UUID to string
                                 "sectionTitle": s.section_title
                             }
                             for s in suggestions

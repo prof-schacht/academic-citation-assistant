@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { zoomPlugin } from '@react-pdf-viewer/zoom';
+import { pageNavigationPlugin } from '@react-pdf-viewer/page-navigation';
 import { api } from '../../services/api';
 import type { CitationSuggestion } from '../../types';
 import PdfViewerErrorBoundary from './ErrorBoundary';
@@ -8,6 +9,7 @@ import PdfViewerErrorBoundary from './ErrorBoundary';
 // Import styles
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/zoom/lib/styles/index.css';
+import '@react-pdf-viewer/page-navigation/lib/styles/index.css';
 
 interface PdfViewerProps {
   paper: CitationSuggestion | null;
@@ -20,24 +22,39 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Create zoom plugin instance
-  const zoomPluginInstance = zoomPlugin();
-  const { ZoomIn, ZoomOut, Zoom } = zoomPluginInstance;
+  // Create plugin instances outside of component to avoid re-creation
+  const zoomPluginInstanceRef = useRef(zoomPlugin());
+  const pageNavigationPluginInstanceRef = useRef(pageNavigationPlugin());
   
-  // Track current zoom level
+  // Get plugin components
+  const { ZoomIn, ZoomOut, Zoom } = zoomPluginInstanceRef.current;
+  const { CurrentPageInput, GoToFirstPage, GoToLastPage, GoToNextPage, GoToPreviousPage } = pageNavigationPluginInstanceRef.current;
+  
+  // Track current zoom level and page
   const [currentScale, setCurrentScale] = useState(1.0);
+  const [currentPage, setCurrentPage] = useState(0);
   
   useEffect(() => {
+    const zoomPlugin = zoomPluginInstanceRef.current;
+    const pagePlugin = pageNavigationPluginInstanceRef.current;
+    
     // Subscribe to zoom changes
-    const unsubscribe = zoomPluginInstance.store?.subscribe('scale', () => {
-      const scale = zoomPluginInstance.store?.get('scale') || 1;
+    const unsubscribeZoom = zoomPlugin.store?.subscribe('scale', () => {
+      const scale = zoomPlugin.store?.get('scale') || 1;
       setCurrentScale(scale);
     });
     
+    // Subscribe to page changes
+    const unsubscribePage = pagePlugin.store?.subscribe('currentPage', () => {
+      const page = pagePlugin.store?.get('currentPage') || 0;
+      setCurrentPage(page);
+    });
+    
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeZoom) unsubscribeZoom();
+      if (unsubscribePage) unsubscribePage();
     };
-  }, [zoomPluginInstance]);
+  }, []);
 
   useEffect(() => {
     if (!paper) {
@@ -78,12 +95,22 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
     return null;
   }
 
-  // Handle document load - for now just log the page info
+  // Handle document load and navigate to the correct page
   const handleDocumentLoad = (e: any) => {
-    if (highlightChunk && paper.pageStart) {
-      console.log(`PDF loaded. Chunk is on page ${paper.pageStart}`);
-      // Note: Page navigation would require additional plugins that are causing issues
-      // For now, we'll just display the page information in the header
+    console.log('PDF document loaded', e);
+    
+    if (highlightChunk && paper.pageStart && e.doc) {
+      console.log(`PDF loaded. Navigating to page ${paper.pageStart}`);
+      // PDF viewers use 0-based page indexing, but our page numbers are 1-based
+      const targetPage = paper.pageStart - 1;
+      
+      // Use the page navigation plugin to jump to the page
+      setTimeout(() => {
+        const pagePlugin = pageNavigationPluginInstanceRef.current;
+        if (pagePlugin.jumpToPage && targetPage >= 0 && targetPage < e.doc.numPages) {
+          pagePlugin.jumpToPage(targetPage);
+        }
+      }, 300); // Give more time for initialization
     }
   };
 
@@ -108,8 +135,49 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
               📍 Citation found on page {paper.pageStart}
               {paper.pageEnd && paper.pageEnd !== paper.pageStart && ` to ${paper.pageEnd}`}
               {paper.sectionTitle && ` in section: ${paper.sectionTitle}`}
+              {currentPage >= 0 && ` (Currently viewing page ${currentPage + 1})`}
             </p>
           )}
+        </div>
+        
+        {/* Page Navigation Controls */}
+        <div className="flex items-center space-x-2 mx-4">
+          <GoToPreviousPage>
+            {(props: any) => (
+              <button
+                {...props}
+                className="p-1.5 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Previous page"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+          </GoToPreviousPage>
+          
+          <CurrentPageInput>
+            {(props: any) => (
+              <input
+                {...props}
+                className="w-12 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            )}
+          </CurrentPageInput>
+          
+          <GoToNextPage>
+            {(props: any) => (
+              <button
+                {...props}
+                className="p-1.5 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Next page"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </GoToNextPage>
         </div>
         
         {/* Zoom Controls */}
@@ -222,8 +290,9 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
             <div className="h-full">
               <Viewer
                 fileUrl={pdfUrl}
-                plugins={[zoomPluginInstance]}
+                plugins={[zoomPluginInstanceRef.current, pageNavigationPluginInstanceRef.current]}
                 defaultScale={1}
+                initialPage={highlightChunk && paper.pageStart ? paper.pageStart - 1 : 0}
                 onDocumentLoad={handleDocumentLoad}
               />
             </div>

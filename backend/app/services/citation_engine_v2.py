@@ -56,7 +56,8 @@ class EnhancedCitationEngine:
                 cross_encoder_model='ms-marco-MiniLM',
                 rerank_weight=0.7,
                 original_weight=0.3,
-                context_weight=0.2
+                context_weight=0.2,
+                batch_size=64  # Increased from default 32 for faster processing
             )
             logger.info("Reranking service initialized successfully")
         except Exception as e:
@@ -108,7 +109,7 @@ class EnhancedCitationEngine:
         # Use default options if not provided
         if options is None:
             options = SearchOptions(
-                limit=150 if use_reranking else 50,  # Get more for reranking
+                limit=30 if use_reranking else 50,  # Reduced from 150 to 30 for faster reranking
                 min_similarity=0.35  # Lower threshold, let reranker decide
             )
         logger.info(f"Search options: limit={options.limit}, min_similarity={options.min_similarity}")
@@ -149,12 +150,12 @@ class EnhancedCitationEngine:
                 # Add timeout to prevent hanging
                 reranked_results = await asyncio.wait_for(
                     self._rerank_results(text, context, search_results),
-                    timeout=30.0  # 30 second timeout
+                    timeout=10.0  # 10 second timeout (reduced from 30)
                 )
                 logger.info(f"Reranking completed, got {len(reranked_results)} results")
                 citations = self._convert_to_enhanced_citations(reranked_results, context)
             except asyncio.TimeoutError:
-                logger.error("Reranking timed out after 30 seconds. Falling back to traditional ranking.")
+                logger.error("Reranking timed out after 10 seconds. Falling back to traditional ranking.")
                 citations = self._apply_traditional_ranking(search_results, context)
             except Exception as e:
                 logger.error(f"Reranking failed: {e}. Falling back to traditional ranking.", exc_info=True)
@@ -197,11 +198,11 @@ class EnhancedCitationEngine:
                 # Add timeout to prevent hanging during BM25 fitting
                 await asyncio.wait_for(
                     self.hybrid_search.fit_bm25(self.db),
-                    timeout=30.0  # 30 second timeout for BM25 fitting
+                    timeout=15.0  # 15 second timeout for BM25 fitting (reduced from 30)
                 )
                 logger.info("BM25 index fitted successfully")
             except asyncio.TimeoutError:
-                logger.error("BM25 fitting timed out after 30 seconds")
+                logger.error("BM25 fitting timed out after 15 seconds")
                 raise Exception("BM25 index fitting timed out - database may be too large")
             except Exception as e:
                 logger.error(f"Failed to fit BM25 index: {e}", exc_info=True)
@@ -222,11 +223,11 @@ class EnhancedCitationEngine:
                         'end_year': options.filters.get('end_year') if options.filters else None
                     }
                 ),
-                timeout=20.0  # 20 second timeout for search
+                timeout=10.0  # 10 second timeout for search (reduced from 20)
             )
             logger.info(f"Hybrid search returned {len(results)} results")
         except asyncio.TimeoutError:
-            logger.error("Hybrid search timed out after 20 seconds")
+            logger.error("Hybrid search timed out after 10 seconds")
             raise Exception("Search timed out - please try again")
         except Exception as e:
             logger.error(f"Hybrid search failed: {e}", exc_info=True)
@@ -309,7 +310,7 @@ class EnhancedCitationEngine:
             query=query,
             results=results,
             query_context=query_context,
-            top_k=50  # Rerank top 50
+            top_k=20  # Reduced from 50 to 20 for faster processing
         )
         
         return reranked
@@ -343,6 +344,9 @@ class EnhancedCitationEngine:
                 chunk_index=metadata.get('chunk_index', 0),
                 chunk_id=result.chunk_id or '',
                 section_title=metadata.get('section', ''),
+                page_start=metadata.get('page_start'),
+                page_end=metadata.get('page_end'),
+                page_boundaries=metadata.get('page_boundaries'),
                 bm25_score=result.original_score,  # Assuming original is hybrid score
                 rerank_score=result.rerank_score,
                 hybrid_score=result.original_score,
@@ -395,6 +399,9 @@ class EnhancedCitationEngine:
                 chunk_index=citation.chunk_index,
                 chunk_id=citation.chunk_id,
                 section_title=citation.section_title,
+                page_start=citation.page_start,
+                page_end=citation.page_end,
+                page_boundaries=citation.page_boundaries,
                 bm25_score=result.get('bm25_score', 0.0),
                 rerank_score=0.0,  # Not reranked
                 hybrid_score=result.get('hybrid_score', result.get('score', 0.0)),

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Settings, Search, Zap, Brain } from 'lucide-react';
 import type { CitationConfig } from '../services/websocketService';
 
@@ -8,6 +8,20 @@ interface CitationSettingsProps {
 }
 
 export function CitationSettings({ config, onConfigChange }: CitationSettingsProps) {
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Debounced config change handler
+  const handleConfigChange = useCallback((newConfig: Partial<CitationConfig>) => {
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    // Set new timer
+    debounceTimerRef.current = setTimeout(() => {
+      onConfigChange(newConfig);
+    }, 300); // 300ms debounce
+  }, [onConfigChange]);
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="flex items-center gap-2 mb-4">
@@ -28,7 +42,7 @@ export function CitationSettings({ config, onConfigChange }: CitationSettingsPro
             id="enhanced-mode"
             type="checkbox"
             checked={config.useEnhanced ?? true}
-            onChange={(e) => onConfigChange({ useEnhanced: e.target.checked })}
+            onChange={(e) => handleConfigChange({ useEnhanced: e.target.checked })}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </div>
@@ -46,7 +60,7 @@ export function CitationSettings({ config, onConfigChange }: CitationSettingsPro
               id="reranking"
               type="checkbox"
               checked={config.useReranking ?? true}
-              onChange={(e) => onConfigChange({ useReranking: e.target.checked })}
+              onChange={(e) => handleConfigChange({ useReranking: e.target.checked })}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
           </div>
@@ -61,7 +75,7 @@ export function CitationSettings({ config, onConfigChange }: CitationSettingsPro
             </label>
             <select
               value={config.searchStrategy ?? 'hybrid'}
-              onChange={(e) => onConfigChange({ searchStrategy: e.target.value as any })}
+              onChange={(e) => handleConfigChange({ searchStrategy: e.target.value as any })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="hybrid">Hybrid (Recommended)</option>

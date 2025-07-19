@@ -174,15 +174,37 @@ const Editor: React.FC<EditorProps> = ({
     try {
       const content = currentEditorStateRef.current.toJSON();
       console.log('[Editor] Saving content immediately');
-      await documentService.update(documentId, { content });
-      setLastSaved(new Date());
       
-      if (onSave) {
-        onSave(content, currentEditorStateRef.current);
+      // Retry logic for failed saves
+      let retries = 3;
+      let lastError = null;
+      
+      while (retries > 0) {
+        try {
+          await documentService.update(documentId, { content });
+          setLastSaved(new Date());
+          
+          if (onSave) {
+            onSave(content, currentEditorStateRef.current);
+          }
+          console.log('[Editor] Immediate save completed');
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            console.log(`[Editor] Save failed, retrying... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
+        }
       }
-      console.log('[Editor] Immediate save completed');
+      
+      if (retries === 0 && lastError) {
+        throw lastError;
+      }
     } catch (error) {
-      console.error('Failed to save immediately:', error);
+      console.error('Failed to save after all retries:', error);
+      // TODO: Show user notification about failed save
     } finally {
       setIsSaving(false);
     }

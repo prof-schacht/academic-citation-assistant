@@ -1,5 +1,161 @@
 # Usage Guide - Academic Citation Assistant
 
+## Version 0.2.2 - Latest Updates (July 19, 2025)
+
+### Critical Fixes Implemented
+
+1. **WebSocket Connection Stability**
+   - Fixed connection state management (removed `isConnected` flag)
+   - Added 5-second connection timeout
+   - Limited message queue to 10 messages
+   - Added proper cleanup on abnormal disconnection
+
+2. **Frontend Freezing Issues**
+   - Fixed memory buildup from unbounded message queue (82,806+ messages)
+   - Added debouncing (300ms) to configuration changes
+   - Prevented rapid reconnection loops
+
+3. **Backend Improvements**
+   - Made reranking service initialization optional
+   - Fixed SQL query issues in hybrid search
+   - Fixed column name mismatches (publication_year → year)
+   - Implemented model caching to avoid HuggingFace rate limiting
+
+### Testing the Citation System
+
+#### 1. Start the Application
+
+```bash
+# Make sure you're in the project root directory
+docker-compose up -d
+
+# Check that all services are running
+docker-compose ps
+```
+
+#### 2. Access the Frontend
+
+Open your browser and navigate to: http://localhost:3000
+
+#### 3. Test Citation Suggestions
+
+1. Navigate to the Document Editor (http://localhost:3000/editor)
+2. Start typing academic content, for example:
+   - "Recent advances in natural language processing have shown that transformer models..."
+   - "Machine learning techniques have revolutionized data analysis..."
+   - "Deep learning approaches for computer vision..."
+
+3. The system should provide real-time citation suggestions as you type
+
+#### 4. Configuration Options
+
+In the Citation Settings panel, you can configure:
+
+- **Enhanced Citations**: Toggle advanced citation features
+- **Use Reranking**: Enable/disable cross-encoder reranking
+- **Search Strategy**: Choose between:
+  - Vector search (semantic similarity)
+  - BM25 (keyword-based)
+  - Hybrid (combines both)
+
+#### 5. Monitor System Health
+
+Check the connection status indicator in the UI:
+- Green: Connected and working
+- Yellow: Connecting
+- Red: Disconnected
+
+#### 6. Testing with the Test Script
+
+Run the provided test script to verify the citation system:
+
+```bash
+cd backend
+python test_citation_system.py
+```
+
+This will send a test query and display the returned citations.
+
+#### 7. Checking Logs
+
+To monitor system behavior:
+
+```bash
+# Backend logs
+docker logs academic-citation-assistant-backend-1 -f
+
+# Frontend logs
+docker logs academic-citation-assistant-frontend-1 -f
+
+# Database logs
+docker logs academic-citation-assistant-postgres-1 -f
+```
+
+### Troubleshooting
+
+#### If citations aren't appearing:
+
+1. Check that the backend is running:
+   ```bash
+   docker-compose ps
+   ```
+
+2. Verify WebSocket connection in browser console:
+   - Open Developer Tools (F12)
+   - Check Network tab for WebSocket connections
+   - Look for any error messages in Console
+
+3. Ensure the database has papers:
+   ```bash
+   docker exec -it academic-citation-assistant-postgres-1 psql -U citation_user -d citation_db
+   SELECT COUNT(*) FROM papers;
+   ```
+
+#### If the frontend freezes:
+
+1. Refresh the page
+2. Check browser console for errors
+3. Verify the version number shows "v0.2.2" in the bottom-right corner
+
+#### If you see rate limiting errors:
+
+The system now caches models locally. If you still see rate limiting:
+1. Check that model_cache directory exists in the container:
+   ```bash
+   docker exec academic-citation-assistant-backend-1 ls -la /app/model_cache/
+   ```
+
+2. Restart the backend to reinitialize services:
+   ```bash
+   docker restart academic-citation-assistant-backend-1
+   ```
+
+### Performance Tips
+
+1. **For better suggestions**:
+   - Write complete sentences
+   - Provide context (at least 10 characters)
+   - Use academic language and terminology
+
+2. **For faster responses**:
+   - Use Vector search for quick semantic matches
+   - Use Hybrid search for comprehensive results
+   - Disable reranking if you need minimal latency
+
+3. **For more accurate results**:
+   - Enable Enhanced Citations
+   - Use Hybrid search with reranking
+   - Upload relevant papers to your library
+
+### Known Limitations
+
+- Minimum text length: 10 characters for suggestions
+- Rate limit: 60 requests per minute per user
+- Maximum message queue: 10 messages
+- Connection timeout: 5 seconds
+
+---
+
 ## Recent Updates (July 18, 2025)
 
 ### NEW: Enhanced Chunking and Retrieval System 🚀

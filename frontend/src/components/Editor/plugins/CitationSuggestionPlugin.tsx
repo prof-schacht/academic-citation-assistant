@@ -28,6 +28,8 @@ export function CitationSuggestionPlugin({
   const [editor] = useLexicalComposerContext();
   const wsClientRef = useRef<CitationWebSocketClient | null>(null);
   const lastTextRef = useRef<string>('');
+  const lastPositionRef = useRef<number>(-1);
+  const lastRequestTimeRef = useRef<number>(0);
   const [, setIsConnected] = useState(false);
 
   // Initialize WebSocket connection
@@ -74,7 +76,7 @@ export function CitationSuggestionPlugin({
     return () => {
       // Don't disconnect on unmount as other components might use it
     };
-  }, [userId, citationConfig, onSuggestionsUpdate, onConnectionChange]);
+  }, [userId, citationConfig, onSuggestionsUpdate, onConnectionChange, onWsClientReady]);
 
   // Debounced function to request suggestions
   const requestSuggestions = useRef(
@@ -151,19 +153,37 @@ export function CitationSuggestionPlugin({
           textLength: currentText.trim().length
         });
         
-        // Skip if text hasn't changed significantly
-        if (currentText === lastTextRef.current || currentText.trim().length < 10) {
-          console.log('[CitationPlugin] Skipping - same text or too short');
+        // Skip if text is too short
+        if (currentText.trim().length < 10) {
+          console.log('[CitationPlugin] Skipping - text too short');
+          return;
+        }
+        
+        // Skip if same text and same position (no actual change)
+        if (currentText === lastTextRef.current && absoluteOffset === lastPositionRef.current) {
+          console.log('[CitationPlugin] Skipping - same text and position');
+          return;
+        }
+        
+        // Rate limit requests to prevent flooding
+        const now = Date.now();
+        if (now - lastRequestTimeRef.current < 1000) { // Max 1 request per second
+          console.log('[CitationPlugin] Skipping - rate limit');
           return;
         }
 
         lastTextRef.current = currentText;
+        lastPositionRef.current = absoluteOffset;
+        lastRequestTimeRef.current = now;
         
         console.log('[CitationPlugin] Requesting suggestions for:', currentText);
         
         // Request suggestions
         if (wsClientRef.current) {
+          console.log('[CitationPlugin] Calling requestSuggestions with WebSocket client');
           wsClientRef.current.requestSuggestions(currentText, context);
+        } else {
+          console.log('[CitationPlugin] No WebSocket client available!');
         }
       });
     }, 500) // 500ms debounce

@@ -150,20 +150,28 @@ async def websocket_citation_endpoint_v2(
                 
                 try:
                     # Analyze text to extract context
+                    logger.info(f"Extracting context for text: {text[:50]}...")
                     text_context = text_service.extract_context(text, context)
                     
                     # Get user preferences
                     user_prefs = enhanced_manager.user_preferences.get(user_id, {})
+                    logger.info(f"User preferences: {user_prefs}")
                     
                     # Get citation suggestions
                     if user_prefs.get("use_enhanced", True):
-                        suggestions = await citation_engine.get_suggestions_enhanced(
-                            text=text_context.current_sentence,
-                            context=text_context,
-                            user_id=user_id,
-                            use_reranking=user_prefs.get("use_reranking", True),
-                            search_strategy=user_prefs.get("search_strategy", "hybrid")
-                        )
+                        logger.info(f"Using enhanced citation engine with strategy: {user_prefs.get('search_strategy', 'hybrid')}, reranking: {user_prefs.get('use_reranking', True)}")
+                        try:
+                            suggestions = await citation_engine.get_suggestions_enhanced(
+                                text=text_context.current_sentence,
+                                context=text_context,
+                                user_id=user_id,
+                                use_reranking=user_prefs.get("use_reranking", True),
+                                search_strategy=user_prefs.get("search_strategy", "hybrid")
+                            )
+                            logger.info(f"Enhanced citation engine returned {len(suggestions)} suggestions")
+                        except Exception as e:
+                            logger.error(f"Enhanced citation engine failed: {e}", exc_info=True)
+                            raise
                         
                         # Format enhanced suggestions
                         results = [

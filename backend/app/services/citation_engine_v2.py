@@ -49,12 +49,19 @@ class EnhancedCitationEngine:
             rerank_top_k=150  # Get more candidates for reranking
         )
         
-        self.reranking_service = RerankingService(
-            cross_encoder_model='ms-marco-MiniLM',
-            rerank_weight=0.7,
-            original_weight=0.3,
-            context_weight=0.2
-        )
+        # Initialize reranking service with error handling
+        self.reranking_service = None
+        try:
+            self.reranking_service = RerankingService(
+                cross_encoder_model='ms-marco-MiniLM',
+                rerank_weight=0.7,
+                original_weight=0.3,
+                context_weight=0.2
+            )
+            logger.info("Reranking service initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize reranking service: {e}. Continuing without reranking.")
+            logger.warning("Enhanced citations will work but without reranking capabilities")
         
         # Initialize Redis for caching
         self.redis_client = None
@@ -95,12 +102,16 @@ class EnhancedCitationEngine:
         Returns:
             List of enhanced citations
         """
+        logger.info(f"EnhancedCitationEngine.get_suggestions_enhanced called with strategy: {search_strategy}, reranking: {use_reranking}")
+        logger.info(f"Query text: {text[:100]}...")
+        
         # Use default options if not provided
         if options is None:
             options = SearchOptions(
                 limit=150 if use_reranking else 50,  # Get more for reranking
                 min_similarity=0.35  # Lower threshold, let reranker decide
             )
+        logger.info(f"Search options: limit={options.limit}, min_similarity={options.min_similarity}")
         
         # Check cache first
         cache_key = f"citations_v2:{user_id}:{hash(text)}:{search_strategy}:{use_reranking}"
@@ -115,19 +126,42 @@ class EnhancedCitationEngine:
                 logger.warning(f"Cache retrieval failed: {e}")
         
         # Get search results based on strategy
-        if search_strategy == "hybrid":
-            search_results = await self._hybrid_search(text, options)
-        elif search_strategy == "bm25":
-            search_results = await self._bm25_search(text, options)
-        else:  # vector
-            search_results = await self._vector_search(text, options)
+        search_results = []
+        try:
+            logger.info(f"Starting {search_strategy} search...")
+            if search_strategy == "hybrid":
+                search_results = await self._hybrid_search(text, options)
+            elif search_strategy == "bm25":
+                search_results = await self._bm25_search(text, options)
+            else:  # vector
+                search_results = await self._vector_search(text, options)
+            logger.info(f"Search completed, found {len(search_results)} results")
+        except Exception as e:
+            logger.error(f"Search failed for strategy '{search_strategy}': {e}", exc_info=True)
+            logger.error(f"Query text: {text[:100]}...")
+            # Return empty results instead of crashing
+            search_results = []
         
-        # Apply reranking if requested
-        if use_reranking and search_results:
-            reranked_results = await self._rerank_results(text, context, search_results)
-            citations = self._convert_to_enhanced_citations(reranked_results, context)
+        # Apply reranking if requested and available
+        if use_reranking and search_results and self.reranking_service:
+            try:
+                logger.info("Applying reranking to search results...")
+                # Add timeout to prevent hanging
+                reranked_results = await asyncio.wait_for(
+                    self._rerank_results(text, context, search_results),
+                    timeout=30.0  # 30 second timeout
+                )
+                logger.info(f"Reranking completed, got {len(reranked_results)} results")
+                citations = self._convert_to_enhanced_citations(reranked_results, context)
+            except asyncio.TimeoutError:
+                logger.error("Reranking timed out after 30 seconds. Falling back to traditional ranking.")
+                citations = self._apply_traditional_ranking(search_results, context)
+            except Exception as e:
+                logger.error(f"Reranking failed: {e}. Falling back to traditional ranking.", exc_info=True)
+                citations = self._apply_traditional_ranking(search_results, context)
         else:
             # Use traditional ranking
+            logger.info("Using traditional ranking (reranking disabled or no reranking service)")
             citations = self._apply_traditional_ranking(search_results, context)
         
         # Filter low confidence results
@@ -154,21 +188,49 @@ class EnhancedCitationEngine:
         self, text: str, options: SearchOptions
     ) -> List[Dict[str, Any]]:
         """Perform hybrid BM25 + vector search."""
+        logger.info(f"_hybrid_search called with text: {text[:50]}...")
+        
         # Ensure BM25 index is fitted
         if not self.hybrid_search._is_fitted:
-            await self.hybrid_search.fit_bm25(self.db)
+            logger.info("BM25 index not fitted, fitting now...")
+            try:
+                # Add timeout to prevent hanging during BM25 fitting
+                await asyncio.wait_for(
+                    self.hybrid_search.fit_bm25(self.db),
+                    timeout=30.0  # 30 second timeout for BM25 fitting
+                )
+                logger.info("BM25 index fitted successfully")
+            except asyncio.TimeoutError:
+                logger.error("BM25 fitting timed out after 30 seconds")
+                raise Exception("BM25 index fitting timed out - database may be too large")
+            except Exception as e:
+                logger.error(f"Failed to fit BM25 index: {e}", exc_info=True)
+                raise
         
         # Perform hybrid search
-        results = await self.hybrid_search.hybrid_search(
-            session=self.db,
-            query=text,
-            limit=options.limit,
-            min_similarity=options.min_similarity,
-            filters={
-                'start_year': options.year_range[0] if options.year_range else None,
-                'end_year': options.year_range[1] if options.year_range else None
-            }
-        )
+        logger.info(f"Performing hybrid search for query: {text[:50]}...")
+        try:
+            # Add timeout to prevent hanging
+            results = await asyncio.wait_for(
+                self.hybrid_search.hybrid_search(
+                    session=self.db,
+                    query=text,
+                    limit=options.limit,
+                    min_similarity=options.min_similarity,
+                    filters={
+                        'start_year': options.filters.get('start_year') if options.filters else None,
+                        'end_year': options.filters.get('end_year') if options.filters else None
+                    }
+                ),
+                timeout=20.0  # 20 second timeout for search
+            )
+            logger.info(f"Hybrid search returned {len(results)} results")
+        except asyncio.TimeoutError:
+            logger.error("Hybrid search timed out after 20 seconds")
+            raise Exception("Search timed out - please try again")
+        except Exception as e:
+            logger.error(f"Hybrid search failed: {e}", exc_info=True)
+            raise
         
         # Convert to dict format for compatibility
         return [

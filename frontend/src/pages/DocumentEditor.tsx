@@ -700,6 +700,11 @@ const DocumentEditor: React.FC = () => {
           console.log('Papers uploaded successfully');
         }}
       />
+      
+      {/* Version indicator */}
+      <div className="fixed bottom-4 right-4 text-xs text-gray-400 bg-gray-900 px-2 py-1 rounded z-50">
+        v0.2.2
+      </div>
     </div>
   );
 };

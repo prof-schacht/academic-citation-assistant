@@ -30,10 +30,10 @@ class PaperProcessorService:
         self.markitdown = MarkItDown()
         self.embedding_service = EmbeddingService()
         self.chunking_service = AdvancedChunkingService(
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-            min_chunk_size=100,
-            max_chunk_size=1000,
+            chunk_size=100,  # Much smaller chunks for better semantic matching
+            chunk_overlap=20,  # Smaller overlap too
+            min_chunk_size=50,
+            max_chunk_size=150,  # Keep chunks small and focused
             embedding_model=None  # Will use existing embedding service
         )
         self.metadata_extractor = ImprovedMetadataExtractor()
@@ -106,17 +106,17 @@ class PaperProcessorService:
                     metadata.update(identifiers)
                 
                 # Update paper with extracted metadata
-                paper.title = metadata.get('title', paper.title)
+                paper.title = processor._clean_text_for_storage(metadata.get('title', paper.title) or '')[:500]  # Limit title length
                 paper.authors = metadata.get('authors', paper.authors)
-                paper.abstract = metadata.get('abstract', paper.abstract)
+                paper.abstract = processor._clean_text_for_storage(metadata.get('abstract', paper.abstract) or '')
                 paper.year = metadata.get('year', paper.year)
-                paper.journal = metadata.get('journal', metadata.get('venue', paper.journal))
+                paper.journal = processor._clean_text_for_storage(metadata.get('journal', metadata.get('venue', paper.journal)) or '')
                 paper.doi = metadata.get('doi', paper.doi)
                 paper.arxiv_id = metadata.get('arxiv_id', paper.arxiv_id)
                 paper.citation_count = metadata.get('citation_count', paper.citation_count)
                 paper.source_url = metadata.get('url', metadata.get('pdf_url', paper.source_url))
                 paper.metadata_source = metadata.get('source', 'text_extraction')
-                paper.full_text = markdown_text
+                paper.full_text = markdown_text  # Already cleaned in _extract_text
                 
                 # Chunk the text using advanced chunking (sentence-aware by default)
                 chunks = processor.chunking_service.chunk_text(
@@ -147,13 +147,13 @@ class PaperProcessorService:
                     # Create PaperChunk record
                     paper_chunk = PaperChunk(
                         paper_id=UUID(paper_id),
-                        content=chunk.text,
+                        content=chunk.text,  # Already cleaned since it comes from cleaned markdown_text
                         chunk_index=chunk.chunk_index,
                         start_char=chunk.start_char,
                         end_char=chunk.end_char,
                         word_count=chunk.word_count,
                         embedding=chunk_embedding,
-                        section_title=chunk.section,
+                        section_title=processor._clean_text_for_storage(chunk.section or ''),
                         chunk_type=chunk.chunk_type,
                         sentence_count=chunk.sentence_count,
                         semantic_score=chunk.semantic_score,
@@ -225,12 +225,36 @@ class PaperProcessorService:
                 raise FileNotFoundError(f"File not found: {file_path}")
             
             result = self.markitdown.convert(file_path)
-            return result.text_content
+            text = result.text_content
+            
+            # Clean the text to remove null bytes and other problematic characters
+            text = self._clean_text_for_storage(text)
+            
+            return text
         except Exception as e:
             logger.error(f"MarkItDown extraction failed: {e}")
             if isinstance(e, FileNotFoundError):
                 raise
             return ""
+    
+    def _clean_text_for_storage(self, text: str) -> str:
+        """Clean text to ensure it's safe for PostgreSQL storage."""
+        if not text:
+            return ""
+        
+        # Remove null bytes
+        text = text.replace('\x00', '')
+        
+        # Remove other control characters except newlines and tabs
+        import unicodedata
+        cleaned = []
+        for char in text:
+            if char in ('\n', '\t', '\r'):
+                cleaned.append(char)
+            elif unicodedata.category(char)[0] != 'C':  # C = Control characters
+                cleaned.append(char)
+        
+        return ''.join(cleaned)
     
     def _extract_metadata(self, markdown_text: str) -> Dict[str, any]:
         """

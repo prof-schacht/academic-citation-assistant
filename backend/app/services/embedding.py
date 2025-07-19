@@ -7,6 +7,7 @@ import json
 from functools import lru_cache
 import logging
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,13 @@ class EmbeddingService:
     def _load_model(self):
         """Load the sentence transformer model."""
         try:
-            logger.info(f"Loading embedding model: {self.model_name}")
-            self.model = SentenceTransformer(self.model_name)
+            # Set cache directory
+            cache_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'model_cache')
+            os.environ['TRANSFORMERS_CACHE'] = cache_dir
+            os.environ['SENTENCE_TRANSFORMERS_HOME'] = cache_dir
+            
+            logger.info(f"Loading embedding model: {self.model_name} from cache: {cache_dir}")
+            self.model = SentenceTransformer(self.model_name, cache_folder=cache_dir)
             self.embedding_dim = self.model.get_sentence_embedding_dimension()
             logger.info(f"Model loaded successfully. Embedding dimension: {self.embedding_dim}")
         except Exception as e:

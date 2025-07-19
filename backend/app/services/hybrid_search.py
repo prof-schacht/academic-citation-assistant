@@ -70,10 +70,14 @@ class BM25Scorer:
         Args:
             documents: List of (doc_id, text) tuples
         """
+        logger.info(f"BM25Scorer.fit called with {len(documents)} documents")
         self.corpus_size = len(documents)
         total_length = 0
         
-        for doc_id, text in documents:
+        for i, (doc_id, text) in enumerate(documents):
+            if i % 1000 == 0:
+                logger.info(f"Processing document {i}/{len(documents)}...")
+            
             tokens = self.tokenize(text)
             self.doc_lengths[doc_id] = len(tokens)
             total_length += len(tokens)
@@ -84,10 +88,14 @@ class BM25Scorer:
                 self.doc_freqs[token] += 1
         
         self.avg_doc_length = total_length / self.corpus_size if self.corpus_size > 0 else 0
+        logger.info(f"Average document length: {self.avg_doc_length}")
         
         # Pre-calculate IDF scores
+        logger.info(f"Calculating IDF scores for {len(self.doc_freqs)} unique tokens...")
         for token, freq in self.doc_freqs.items():
             self.idf_cache[token] = self._calculate_idf(freq)
+        
+        logger.info(f"BM25 fitting complete. Corpus size: {self.corpus_size}, Unique tokens: {len(self.doc_freqs)}")
     
     def _calculate_idf(self, doc_freq: int) -> float:
         """Calculate IDF score for a term."""
@@ -105,6 +113,10 @@ class BM25Scorer:
         Returns:
             BM25 score
         """
+        # Handle empty corpus case
+        if self.corpus_size == 0 or self.avg_doc_length == 0:
+            return 0.0
+            
         query_tokens = self.tokenize(query)
         doc_tokens = self.tokenize(doc_text)
         doc_length = len(doc_tokens)
@@ -156,19 +168,38 @@ class HybridSearchService:
         self.bm25_scorer = BM25Scorer()
         self._is_fitted = False
     
-    async def fit_bm25(self, session: AsyncSession):
+    async def fit_bm25(self, session: AsyncSession, max_documents: int = 10000):
         """Fit BM25 model on the corpus."""
-        # Fetch all chunks for BM25 fitting
-        stmt = select(PaperChunk.id, PaperChunk.content)
-        result = await session.execute(stmt)
-        documents = [(str(chunk_id), content) for chunk_id, content in result]
+        logger.info("Starting BM25 fitting...")
+        
+        # Fetch chunks for BM25 fitting with a limit to prevent memory issues
+        stmt = select(PaperChunk.id, PaperChunk.content).limit(max_documents)
+        logger.info(f"Executing query to fetch up to {max_documents} paper chunks...")
+        
+        try:
+            result = await session.execute(stmt)
+            documents = [(str(chunk_id), content) for chunk_id, content in result]
+            logger.info(f"Fetched {len(documents)} documents from database")
+        except Exception as e:
+            logger.error(f"Failed to fetch documents for BM25 fitting: {e}", exc_info=True)
+            raise
         
         if documents:
-            self.bm25_scorer.fit(documents)
-            self._is_fitted = True
-            logger.info(f"BM25 model fitted on {len(documents)} documents")
+            logger.info(f"Fitting BM25 scorer on {len(documents)} documents...")
+            try:
+                self.bm25_scorer.fit(documents)
+                self._is_fitted = True
+                logger.info(f"BM25 model fitted successfully on {len(documents)} documents")
+            except Exception as e:
+                logger.error(f"Failed to fit BM25 scorer: {e}", exc_info=True)
+                raise
         else:
             logger.warning("No documents found for BM25 fitting")
+            # Mark as fitted to prevent repeated attempts
+            self._is_fitted = True
+            # Initialize with empty corpus to prevent errors
+            self.bm25_scorer.corpus_size = 0
+            self.bm25_scorer.avg_doc_length = 0
     
     async def hybrid_search(
         self,
@@ -196,7 +227,7 @@ class HybridSearchService:
             await self.fit_bm25(session)
         
         # Generate query embedding
-        query_embedding = await self.embedding_service.embed_text(query)
+        query_embedding = await self.embedding_service.generate_embedding(query)
         
         # Perform vector search
         vector_results = await self._vector_search(
@@ -228,34 +259,36 @@ class HybridSearchService:
         embedding_str = f"[{','.join(map(str, query_embedding))}]"
         
         query_parts = [
-            f"1 - (pc.embedding <=> '{embedding_str}'::vector) as similarity"
+            f"1 - (pc.embedding <=> '{embedding_str}'::vector)"
         ]
         
         # Apply filters
         where_clauses = []
         if filters:
-            if 'start_year' in filters:
-                where_clauses.append(f"p.publication_year >= {filters['start_year']}")
-            if 'end_year' in filters:
-                where_clauses.append(f"p.publication_year <= {filters['end_year']}")
+            if 'start_year' in filters and filters['start_year'] is not None:
+                where_clauses.append(f"p.year >= {filters['start_year']}")
+            if 'end_year' in filters and filters['end_year'] is not None:
+                where_clauses.append(f"p.year <= {filters['end_year']}")
         
-        where_clause = f"AND {' AND '.join(where_clauses)}" if where_clauses else ""
+        where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
         
-        # Execute query
+        # Execute query - use a subquery to properly alias similarity
         query_text = f"""
-        SELECT 
-            pc.id as chunk_id,
-            pc.paper_id,
-            pc.content,
-            {query_parts[0]},
-            p.title,
-            p.authors,
-            p.publication_year,
-            p.abstract
-        FROM paper_chunks pc
-        JOIN papers p ON pc.paper_id = p.id
+        SELECT * FROM (
+            SELECT 
+                pc.id as chunk_id,
+                pc.paper_id,
+                pc.content,
+                {query_parts[0]} as similarity,
+                p.title,
+                p.authors,
+                p.year,
+                p.abstract
+            FROM paper_chunks pc
+            JOIN papers p ON pc.paper_id = p.id
+            {where_clause}
+        ) AS ranked_results
         WHERE similarity >= :min_similarity
-        {where_clause}
         ORDER BY similarity DESC
         LIMIT :limit
         """
@@ -270,7 +303,7 @@ class HybridSearchService:
             metadata = {
                 'title': row.title,
                 'authors': row.authors,
-                'year': row.publication_year,
+                'year': row.year,
                 'abstract': row.abstract
             }
             results.append((
@@ -298,16 +331,16 @@ class HybridSearchService:
             PaperChunk.content,
             Paper.title,
             Paper.authors,
-            Paper.publication_year,
+            Paper.year,
             Paper.abstract
         ).join(Paper, PaperChunk.paper_id == Paper.id)
         
         # Apply filters
         if filters:
-            if 'start_year' in filters:
-                stmt = stmt.where(Paper.publication_year >= filters['start_year'])
-            if 'end_year' in filters:
-                stmt = stmt.where(Paper.publication_year <= filters['end_year'])
+            if 'start_year' in filters and filters['start_year'] is not None:
+                stmt = stmt.where(Paper.year >= filters['start_year'])
+            if 'end_year' in filters and filters['end_year'] is not None:
+                stmt = stmt.where(Paper.year <= filters['end_year'])
         
         result = await session.execute(stmt)
         
@@ -321,7 +354,7 @@ class HybridSearchService:
                 metadata = {
                     'title': row.title,
                     'authors': row.authors,
-                    'year': row.publication_year,
+                    'year': row.year,
                     'abstract': row.abstract
                 }
                 scored_results.append((

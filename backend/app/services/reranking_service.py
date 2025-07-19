@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import logging
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -54,10 +55,21 @@ class CrossEncoderReranker:
         self.max_length = max_length
         self.batch_size = batch_size
         
-        # Initialize model and tokenizer
-        logger.info(f"Loading cross-encoder model: {self.model_name}")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+        # Initialize model and tokenizer with cache directory
+        cache_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'model_cache')
+        os.environ['TRANSFORMERS_CACHE'] = cache_dir
+        os.environ['HF_HOME'] = cache_dir
+        
+        logger.info(f"Loading cross-encoder model: {self.model_name} from cache: {cache_dir}")
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, cache_dir=cache_dir, local_files_only=True)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name, cache_dir=cache_dir, local_files_only=True)
+            logger.info("Loaded model from cache")
+        except Exception as e:
+            logger.warning(f"Failed to load from cache, downloading: {e}")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, cache_dir=cache_dir)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name, cache_dir=cache_dir)
+            
         self.model.to(self.device)
         self.model.eval()
         
@@ -292,14 +304,14 @@ class RerankingService:
         
         # Combine context into a single query
         context_parts = []
-        if 'previous' in query_context:
+        if query_context.get('previous'):
             context_parts.append(query_context['previous'])
-        if 'current' in query_context:
+        if query_context.get('current'):
             context_parts.append(query_context['current'])
-        if 'next' in query_context:
+        if query_context.get('next'):
             context_parts.append(query_context['next'])
         
-        extended_query = ' '.join(context_parts)
+        extended_query = ' '.join(context_parts) if context_parts else ''
         
         # Score each result against extended context
         texts = [result.get('chunk_text', '') for result in results]

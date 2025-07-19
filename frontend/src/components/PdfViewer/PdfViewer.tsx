@@ -144,9 +144,18 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
           
           // After jumping to page, search for and highlight the chunk text
           if (paper.chunkText && setKeyword) {
-            // Extract first meaningful part of chunk text (first 50 chars or first sentence)
-            const searchText = paper.chunkText.substring(0, 50).trim();
-            console.log(`[PdfViewer] Searching for text: "${searchText}"`);
+            // Extract first 2-5 words from chunk text for better matching
+            // Remove markdown formatting and special characters first
+            const cleanText = paper.chunkText
+              .replace(/[#*_\[\]()]/g, '') // Remove markdown characters
+              .replace(/\s+/g, ' ') // Normalize whitespace
+              .trim();
+            
+            // Get first 3 words (or less if chunk is shorter)
+            const words = cleanText.split(' ').filter(word => word.length > 0);
+            const searchText = words.slice(0, 3).join(' ');
+            
+            console.log(`[PdfViewer] Searching for first words: "${searchText}"`);
             
             setTimeout(() => {
               setKeyword(searchText);
@@ -303,7 +312,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
         <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
           <p className="text-sm text-blue-800">
             💡 The citation chunk is located on <strong>page {paper.pageStart}</strong>. 
-            Please navigate to that page to find the highlighted content.
+            The first few words of the chunk are highlighted in yellow to help you find where it begins.
           </p>
         </div>
       )}

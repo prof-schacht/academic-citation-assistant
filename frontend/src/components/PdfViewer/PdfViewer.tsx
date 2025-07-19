@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { zoomPlugin } from '@react-pdf-viewer/zoom';
 import { pageNavigationPlugin } from '@react-pdf-viewer/page-navigation';
@@ -25,32 +25,30 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentScale, setCurrentScale] = useState(1.0);
   
-  // Create plugin instances
-  const zoomPluginInstance = zoomPlugin();
+  // Create plugin instances with useMemo to prevent recreation
+  const zoomPluginInstance = useMemo(() => zoomPlugin(), []);
   const { ZoomIn, ZoomOut, Zoom } = zoomPluginInstance;
   
-  const pageNavigationPluginInstance = pageNavigationPlugin();
+  const pageNavigationPluginInstance = useMemo(() => pageNavigationPlugin(), []);
   const { jumpToPage } = pageNavigationPluginInstance;
   
   // Create search plugin to highlight chunk text
-  const searchPluginInstance = searchPlugin({
+  const searchPluginInstance = useMemo(() => searchPlugin({
     keyword: [],
     onHighlightKeyword: (props) => {
       // Custom styling for chunk highlights
       props.highlightEle.style.backgroundColor = 'rgba(255, 235, 59, 0.4)';
       props.highlightEle.style.border = '2px solid #FFC107';
     },
-  });
+  }), []);
   const { highlight: highlightText, clearHighlights } = searchPluginInstance;
   
   // Create highlight plugin for interactive highlighting
-  const highlightPluginInstance = highlightPlugin({
+  const highlightPluginInstance = useMemo(() => highlightPlugin({
     trigger: Trigger.None, // We'll trigger highlights programmatically
-  });
-  
-  // Track current zoom level
-  const [currentScale, setCurrentScale] = useState(1.0);
+  }), []);
   
   useEffect(() => {
     // Subscribe to zoom changes
@@ -66,22 +64,26 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
 
   // Handle document load and navigation to chunk
   const handleDocumentLoad = useCallback(() => {
-    if (highlightChunk && paper?.pageStart) {
+    if (highlightChunk && paper?.pageStart && jumpToPage) {
       // Jump to the page where chunk starts (convert to 0-based index)
       const targetPage = paper.pageStart - 1;
       
       setTimeout(() => {
         jumpToPage(targetPage).then(() => {
           // Highlight the chunk text if available
-          if (paper.chunkText) {
+          if (paper.chunkText && highlightText) {
             // Extract a portion of chunk text for highlighting
             const textToHighlight = paper.chunkText.substring(0, 100).trim();
-            highlightText(textToHighlight);
+            if (textToHighlight) {
+              highlightText(textToHighlight);
+            }
           }
+        }).catch(err => {
+          console.error('Failed to jump to page:', err);
         });
       }, 500); // Small delay to ensure PDF is fully rendered
     }
-  }, [highlightChunk, paper, jumpToPage, highlightText]);
+  }, [highlightChunk, paper?.pageStart, paper?.chunkText, jumpToPage, highlightText]);
 
   useEffect(() => {
     if (!paper) {
@@ -118,12 +120,15 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
     loadPdf();
   }, [paper]);
 
-  // Clear highlights when paper changes
+  // Clear highlights when component unmounts
   useEffect(() => {
     return () => {
-      clearHighlights();
+      // Only clear highlights on unmount, not on paper change
+      if (clearHighlights) {
+        clearHighlights();
+      }
     };
-  }, [paper, clearHighlights]);
+  }, []); // Empty dependency array - only run on mount/unmount
 
   if (!paper) {
     return null;
@@ -205,7 +210,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
           {/* Clear highlights button */}
           {highlightChunk && (
             <button
-              onClick={clearHighlights}
+              onClick={() => clearHighlights && clearHighlights()}
               className="p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
               title="Clear highlights"
             >

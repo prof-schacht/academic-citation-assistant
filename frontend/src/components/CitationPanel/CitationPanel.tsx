@@ -200,7 +200,18 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
                         {isInBibliography ? 'In Library' : 'Add to Library'}
                       </button>
                       <button
-                        onClick={() => onViewDetails && onViewDetails(citation)}
+                        onClick={() => {
+                          console.log('[CitationPanel] View Details clicked for:', {
+                            title: citation.title,
+                            paperId: citation.paperId,
+                            pageStart: citation.pageStart,
+                            pageEnd: citation.pageEnd,
+                            pageBoundaries: citation.pageBoundaries,
+                            chunkText: citation.chunkText?.substring(0, 100) + '...',
+                            sectionTitle: citation.sectionTitle
+                          });
+                          onViewDetails && onViewDetails(citation);
+                        }}
                         className={`px-3 py-1 text-xs transition ${
                           isSelected 
                             ? 'bg-blue-600 text-white hover:bg-blue-700' 

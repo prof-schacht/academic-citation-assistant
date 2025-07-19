@@ -22,6 +22,18 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Log the paper prop when component mounts/updates
+  useEffect(() => {
+    console.log('[PdfViewer] Component received paper:', {
+      title: paper?.title,
+      paperId: paper?.paperId,
+      pageStart: paper?.pageStart,
+      pageEnd: paper?.pageEnd,
+      pageBoundaries: paper?.pageBoundaries,
+      highlightChunk: highlightChunk
+    });
+  }, [paper, highlightChunk]);
+  
   // Create plugin instances outside of component to avoid re-creation
   const zoomPluginInstanceRef = useRef(zoomPlugin());
   const pageNavigationPluginInstanceRef = useRef(pageNavigationPlugin());
@@ -97,20 +109,41 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
 
   // Handle document load and navigate to the correct page
   const handleDocumentLoad = (e: any) => {
-    console.log('PDF document loaded', e);
+    console.log('[PdfViewer] PDF document loaded:', {
+      numPages: e.doc?.numPages,
+      paper: paper,
+      pageStart: paper?.pageStart,
+      highlightChunk: highlightChunk
+    });
     
     if (highlightChunk && paper.pageStart && e.doc) {
-      console.log(`PDF loaded. Navigating to page ${paper.pageStart}`);
+      console.log(`[PdfViewer] Attempting to navigate to page ${paper.pageStart} (0-based: ${paper.pageStart - 1})`);
       // PDF viewers use 0-based page indexing, but our page numbers are 1-based
       const targetPage = paper.pageStart - 1;
       
       // Use the page navigation plugin to jump to the page
       setTimeout(() => {
         const pagePlugin = pageNavigationPluginInstanceRef.current;
+        console.log('[PdfViewer] Page navigation plugin:', {
+          hasJumpToPage: !!pagePlugin.jumpToPage,
+          targetPage: targetPage,
+          totalPages: e.doc.numPages,
+          isValidPage: targetPage >= 0 && targetPage < e.doc.numPages
+        });
+        
         if (pagePlugin.jumpToPage && targetPage >= 0 && targetPage < e.doc.numPages) {
+          console.log(`[PdfViewer] Jumping to page ${targetPage + 1} (0-based: ${targetPage})`);
           pagePlugin.jumpToPage(targetPage);
+        } else {
+          console.log('[PdfViewer] Cannot jump to page - invalid conditions');
         }
       }, 300); // Give more time for initialization
+    } else {
+      console.log('[PdfViewer] Not navigating to page:', {
+        highlightChunk: highlightChunk,
+        hasPageStart: !!paper?.pageStart,
+        hasDoc: !!e.doc
+      });
     }
   };
 

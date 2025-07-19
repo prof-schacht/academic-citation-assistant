@@ -355,9 +355,18 @@ const DocumentEditor: React.FC = () => {
   };
 
   const handleViewPaperDetails = (paper: CitationSuggestion) => {
-    console.log('Viewing paper details:', paper.title);
+    console.log('[DocumentEditor] handleViewPaperDetails called with:', {
+      title: paper.title,
+      paperId: paper.paperId,
+      pageStart: paper.pageStart,
+      pageEnd: paper.pageEnd,
+      pageBoundaries: paper.pageBoundaries,
+      hasChunkText: !!paper.chunkText,
+      sectionTitle: paper.sectionTitle
+    });
     // Check if paper has page information (meaning it came from a citation suggestion with chunk data)
     const hasChunkInfo = paper.pageStart !== undefined || paper.chunkText !== undefined;
+    console.log('[DocumentEditor] hasChunkInfo:', hasChunkInfo);
     setHighlightChunkInPdf(hasChunkInfo);
     setSelectedPaper(paper);
     setShowPdfViewer(true);

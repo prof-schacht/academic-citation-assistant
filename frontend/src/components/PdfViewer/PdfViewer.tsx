@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { zoomPlugin } from '@react-pdf-viewer/zoom';
 import { pageNavigationPlugin } from '@react-pdf-viewer/page-navigation';
-import { searchPlugin } from '@react-pdf-viewer/search';
+// Removed search/highlight plugins - will show search terms to user instead
 import { api } from '../../services/api';
 import type { CitationSuggestion } from '../../types';
 import PdfViewerErrorBoundary from './ErrorBoundary';
@@ -11,7 +11,6 @@ import PdfViewerErrorBoundary from './ErrorBoundary';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/zoom/lib/styles/index.css';
 import '@react-pdf-viewer/page-navigation/lib/styles/index.css';
-import '@react-pdf-viewer/search/lib/styles/index.css';
 
 interface PdfViewerProps {
   paper: CitationSuggestion | null;
@@ -23,6 +22,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerms, setSearchTerms] = useState<string>('');
   
   // Log the paper prop when component mounts/updates
   useEffect(() => {
@@ -39,15 +39,10 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
   // Create plugin instances outside of component to avoid re-creation
   const zoomPluginInstanceRef = useRef(zoomPlugin());
   const pageNavigationPluginInstanceRef = useRef(pageNavigationPlugin());
-  const searchPluginInstanceRef = useRef(searchPlugin({
-    keyword: '',
-    enableShortcuts: false
-  }));
   
   // Get plugin components
   const { ZoomIn, ZoomOut, Zoom } = zoomPluginInstanceRef.current;
   const { CurrentPageInput, GoToFirstPage, GoToLastPage, GoToNextPage, GoToPreviousPage } = pageNavigationPluginInstanceRef.current;
-  const { setKeyword, highlight } = searchPluginInstanceRef.current;
   
   // Track current zoom level and page
   const [currentScale, setCurrentScale] = useState(1.0);
@@ -142,31 +137,27 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
           console.log(`[PdfViewer] Jumping to page ${targetPage + 1} (0-based: ${targetPage})`);
           pagePlugin.jumpToPage(targetPage);
           
-          // After jumping to page, search for and highlight the chunk text
-          if (paper.chunkText && setKeyword) {
-            // Extract first 2-5 words from chunk text for better matching
+          // Extract first few words to help user locate the chunk
+          if (paper.chunkText) {
             // Remove markdown formatting and special characters first
             const cleanText = paper.chunkText
-              .replace(/[#*_\[\]()]/g, '') // Remove markdown characters
+              .replace(/[#*_\[\](){}\-–—]/g, ' ') // Remove markdown and punctuation
+              .replace(/\n/g, ' ') // Replace newlines with spaces
               .replace(/\s+/g, ' ') // Normalize whitespace
               .trim();
             
-            // Get first 3 words (or less if chunk is shorter)
-            const words = cleanText.split(' ').filter(word => word.length > 0);
-            const searchText = words.slice(0, 3).join(' ');
+            // Get first 3-5 meaningful words
+            const words = cleanText
+              .split(' ')
+              .filter(word => word.length > 2) // Skip short words like "a", "an", "to", etc.
+              .slice(0, 4); // Get up to 4 meaningful words
             
-            console.log(`[PdfViewer] Searching for first words: "${searchText}"`);
+            const searchText = words.join(' ');
             
-            setTimeout(() => {
-              setKeyword(searchText);
-              // Trigger highlight
-              if (highlight) {
-                highlight({
-                  keyword: searchText,
-                  matchCase: false
-                });
-              }
-            }, 500); // Give time for page to render
+            if (searchText) {
+              setSearchTerms(searchText);
+              console.log(`[PdfViewer] Setting search terms for user: "${searchText}"`);
+            }
           }
         } else {
           console.log('[PdfViewer] Cannot jump to page - invalid conditions');
@@ -312,8 +303,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
         <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
           <p className="text-sm text-blue-800">
             💡 The citation chunk is located on <strong>page {paper.pageStart}</strong>. 
-            The first few words of the chunk are highlighted in yellow to help you find where it begins.
           </p>
+          {searchTerms && (
+            <p className="text-sm text-blue-900 mt-1">
+              🔍 Look for: <strong className="font-mono bg-yellow-100 px-1 py-0.5 rounded">{searchTerms}</strong>
+            </p>
+          )}
         </div>
       )}
 
@@ -357,7 +352,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
             <div className="h-full">
               <Viewer
                 fileUrl={pdfUrl}
-                plugins={[zoomPluginInstanceRef.current, pageNavigationPluginInstanceRef.current, searchPluginInstanceRef.current]}
+                plugins={[zoomPluginInstanceRef.current, pageNavigationPluginInstanceRef.current]}
                 defaultScale={1}
                 initialPage={highlightChunk && paper.pageStart ? paper.pageStart - 1 : 0}
                 onDocumentLoad={handleDocumentLoad}

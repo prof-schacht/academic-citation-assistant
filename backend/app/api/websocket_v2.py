@@ -2,7 +2,7 @@
 from typing import Dict, Set, Optional
 import json
 import asyncio
-from fastapi import WebSocket, WebSocketDisconnect, Depends, Query
+from fastapi import WebSocket, WebSocketDisconnect, Depends
 from fastapi.websockets import WebSocketState
 from app.core.config import settings
 from app.services.citation_engine import CitationEngine
@@ -86,13 +86,22 @@ enhanced_manager = EnhancedConnectionManager()
 
 
 async def websocket_citation_endpoint_v2(
-    websocket: WebSocket,
-    user_id: str = Query(...),
-    use_enhanced: bool = Query(default=True),
-    use_reranking: bool = Query(default=True),
-    search_strategy: str = Query(default="hybrid")
+    websocket: WebSocket
 ):
     """Enhanced WebSocket endpoint with configurable search strategies."""
+    
+    # Extract query parameters from the WebSocket URL
+    query_params = dict(websocket.query_params)
+    user_id = query_params.get("user_id")
+    
+    if not user_id:
+        await websocket.close(code=1008, reason="Missing user_id parameter")
+        return
+    
+    # Parse optional parameters with defaults
+    use_enhanced = query_params.get("use_enhanced", "true").lower() == "true"
+    use_reranking = query_params.get("use_reranking", "true").lower() == "true"
+    search_strategy = query_params.get("search_strategy", "hybrid")
     
     # Set initial preferences
     preferences = {

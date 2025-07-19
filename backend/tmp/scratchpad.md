@@ -95,4 +95,97 @@
 - pgvector IVFFlat index still used for vector search
 - Cross-encoder runs on CPU by default (GPU optional)
 - BM25 index needs to be fitted on corpus initially
-EOF < /dev/null
+
+---
+
+## Date: January 19, 2025
+
+### Task: Debug WebSocket Connection Issues
+
+### Problem Description
+- WebSocket shows "connected" status but has readyState 0 (CONNECTING)
+- Messages queue indefinitely and never get sent
+- This prevents real-time citation suggestions from working
+
+### Root Causes Identified
+1. **State Management Issue**: Using a separate `isConnected` flag instead of checking actual `socket.readyState`
+2. **Race Condition**: In `updateConfig()` method when disconnecting and immediately reconnecting
+3. **No Connection Timeout**: Connection attempts can hang indefinitely
+4. **Inconsistent State Checks**: Different parts of code check different indicators of connection status
+
+### Files Analyzed
+- `/frontend/src/services/websocketService.ts` - Main WebSocket client implementation
+- `/backend/app/api/websocket.py` - Backend WebSocket handler
+- `/backend/app/main.py` - WebSocket route registration
+
+### Created Files
+1. `tmp/debug_websocket.py` - Comprehensive WebSocket connection debugger
+2. `tmp/websocket_analysis_report.md` - Detailed analysis report
+3. `tmp/websocket_fix.patch` - Patch file with recommended fixes
+
+### Key Fixes Implemented in Patch
+1. Removed `isConnected` flag, now using `socket.readyState` directly
+2. Added 5-second connection timeout
+3. Fixed race condition in `updateConfig()` with delayed reconnection
+4. Added proper error handling in `sendMessage()`
+5. Improved connection state checking to handle CONNECTING state
+
+### Next Steps
+1. Apply the patch to websocketService.ts
+2. Run the debug script to verify connection
+3. Test in browser with real-time citation suggestions
+4. Monitor for any remaining issues
+
+---
+
+## Date: January 19, 2025
+
+### Task: Fix "Object of type Query is not JSON serializable" Error
+
+### Problem Description
+- WebSocket endpoints were using FastAPI's `Query` parameter incorrectly
+- FastAPI `Query` objects are not supported in WebSocket endpoints 
+- This caused JSON serialization errors when the WebSocket tried to send messages
+
+### Root Cause
+WebSocket endpoints in FastAPI don't support dependency injection with `Query` parameters the same way HTTP endpoints do. Query parameters need to be extracted from the WebSocket URL using `websocket.query_params`.
+
+### Files Fixed
+1. `/backend/app/api/websocket.py` - Original WebSocket endpoint
+2. `/backend/app/api/websocket_v2.py` - Enhanced WebSocket endpoint with reranking
+
+### Changes Made
+1. Removed `Query` import from FastAPI
+2. Changed function signatures to only accept `websocket: WebSocket`
+3. Added code to extract query parameters from `websocket.query_params`
+4. Added validation for required `user_id` parameter
+5. Parse boolean parameters correctly (string "true"/"false" to boolean)
+
+### Test Script Created
+- `tmp/test_websocket_fix.py` - Tests WebSocket connections with various parameter combinations
+
+### How It Works Now
+```python
+# Before (incorrect):
+async def websocket_citation_endpoint_v2(
+    websocket: WebSocket,
+    user_id: str = Query(...),
+    use_enhanced: bool = Query(default=True)
+):
+
+# After (correct):
+async def websocket_citation_endpoint_v2(
+    websocket: WebSocket
+):
+    query_params = dict(websocket.query_params)
+    user_id = query_params.get("user_id")
+    use_enhanced = query_params.get("use_enhanced", "true").lower() == "true"
+```
+
+### Testing
+Run the test script to verify the fix:
+```bash
+python tmp/test_websocket_fix.py
+```
+
+This should connect successfully and exchange messages without JSON serialization errors.

@@ -60,6 +60,9 @@ dmypy.json
 # Uploads
 uploads/
 
+# Model cache directory
+model_cache/
+
 # Database
 *.db
 *.sqlite3

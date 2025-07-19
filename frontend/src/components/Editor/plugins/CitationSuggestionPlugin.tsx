@@ -7,11 +7,12 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { $getSelection, $isRangeSelection, $getRoot } from 'lexical';
 import type { EditorState } from 'lexical';
 import { getCitationWebSocketClient, CitationWebSocketClient } from '../../../services/websocketService';
-import type { CitationSuggestion } from '../../../services/websocketService';
+import type { CitationSuggestion, CitationConfig } from '../../../services/websocketService';
 import { debounce } from '../../../utils/debounce';
 
 interface CitationSuggestionPluginProps {
   userId: string;
+  citationConfig?: CitationConfig;
   onSuggestionsUpdate: (suggestions: CitationSuggestion[]) => void;
   onConnectionChange?: (connected: boolean) => void;
   onWsClientReady?: (client: CitationWebSocketClient) => void;
@@ -19,6 +20,7 @@ interface CitationSuggestionPluginProps {
 
 export function CitationSuggestionPlugin({
   userId,
+  citationConfig,
   onSuggestionsUpdate,
   onConnectionChange,
   onWsClientReady
@@ -26,12 +28,14 @@ export function CitationSuggestionPlugin({
   const [editor] = useLexicalComposerContext();
   const wsClientRef = useRef<CitationWebSocketClient | null>(null);
   const lastTextRef = useRef<string>('');
+  const lastPositionRef = useRef<number>(-1);
+  const lastRequestTimeRef = useRef<number>(0);
   const [, setIsConnected] = useState(false);
 
   // Initialize WebSocket connection
   useEffect(() => {
-    console.log('[CitationPlugin] Initializing WebSocket for user:', userId);
-    const wsClient = getCitationWebSocketClient(userId);
+    console.log('[CitationPlugin] Initializing WebSocket for user:', userId, 'config:', citationConfig);
+    const wsClient = getCitationWebSocketClient(userId, citationConfig);
     wsClientRef.current = wsClient;
     
     // Notify parent component that client is ready
@@ -72,7 +76,7 @@ export function CitationSuggestionPlugin({
     return () => {
       // Don't disconnect on unmount as other components might use it
     };
-  }, [userId, onSuggestionsUpdate, onConnectionChange]);
+  }, [userId, citationConfig, onSuggestionsUpdate, onConnectionChange, onWsClientReady]);
 
   // Debounced function to request suggestions
   const requestSuggestions = useRef(
@@ -149,19 +153,37 @@ export function CitationSuggestionPlugin({
           textLength: currentText.trim().length
         });
         
-        // Skip if text hasn't changed significantly
-        if (currentText === lastTextRef.current || currentText.trim().length < 10) {
-          console.log('[CitationPlugin] Skipping - same text or too short');
+        // Skip if text is too short
+        if (currentText.trim().length < 10) {
+          console.log('[CitationPlugin] Skipping - text too short');
+          return;
+        }
+        
+        // Skip if same text and same position (no actual change)
+        if (currentText === lastTextRef.current && absoluteOffset === lastPositionRef.current) {
+          console.log('[CitationPlugin] Skipping - same text and position');
+          return;
+        }
+        
+        // Rate limit requests to prevent flooding
+        const now = Date.now();
+        if (now - lastRequestTimeRef.current < 1000) { // Max 1 request per second
+          console.log('[CitationPlugin] Skipping - rate limit');
           return;
         }
 
         lastTextRef.current = currentText;
+        lastPositionRef.current = absoluteOffset;
+        lastRequestTimeRef.current = now;
         
         console.log('[CitationPlugin] Requesting suggestions for:', currentText);
         
         // Request suggestions
         if (wsClientRef.current) {
+          console.log('[CitationPlugin] Calling requestSuggestions with WebSocket client');
           wsClientRef.current.requestSuggestions(currentText, context);
+        } else {
+          console.log('[CitationPlugin] No WebSocket client available!');
         }
       });
     }, 500) // 500ms debounce

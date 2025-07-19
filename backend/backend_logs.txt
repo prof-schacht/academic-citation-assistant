@@ -1,0 +1,14 @@
+INFO:     172.20.0.1:50276 - "PUT /api/documents/08389a65-8ae7-46ed-8b61-834b5a66030f HTTP/1.1" 200 OK
+INFO:     172.20.0.1:50276 - "PUT /api/documents/08389a65-8ae7-46ed-8b61-834b5a66030f HTTP/1.1" 200 OK
+INFO:     172.20.0.1:36562 - "PUT /api/documents/08389a65-8ae7-46ed-8b61-834b5a66030f HTTP/1.1" 200 OK
+INFO:     172.20.0.1:36562 - "PUT /api/documents/08389a65-8ae7-46ed-8b61-834b5a66030f HTTP/1.1" 200 OK
+Shutting down application
+Background PDF processor stopped
+Starting Academic Citation Assistant v0.1.0
+NLTK punkt_tab tokenizer downloaded
+Background PDF processor started
+Shutting down application
+Background PDF processor stopped
+Starting Academic Citation Assistant v0.1.0
+NLTK punkt_tab tokenizer downloaded
+Background PDF processor started

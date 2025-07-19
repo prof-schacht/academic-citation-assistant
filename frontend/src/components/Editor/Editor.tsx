@@ -25,7 +25,7 @@ import { CitationInsertPlugin } from './plugins/CitationInsertPlugin';
 import { SelectionCitationPlugin } from './plugins/SelectionCitationPlugin';
 import { documentService } from '../../services/documentService';
 import { debounce } from 'lodash';
-import type { CitationSuggestion, CitationWebSocketClient } from '../../services/websocketService';
+import type { CitationSuggestion, CitationWebSocketClient, CitationConfig } from '../../services/websocketService';
 
 interface EditorProps {
   documentId?: string;
@@ -33,6 +33,7 @@ interface EditorProps {
   onSave?: (content: any, editorState?: EditorState) => void;
   autoSaveDelay?: number;
   userId?: string;
+  citationConfig?: CitationConfig;
   onCitationSuggestionsUpdate?: (suggestions: CitationSuggestion[]) => void;
   onCitationConnectionChange?: (connected: boolean) => void;
   onRegisterCitationInsert?: (handler: (citation: CitationSuggestion) => void) => void;
@@ -103,6 +104,7 @@ const Editor: React.FC<EditorProps> = ({
   onSave,
   autoSaveDelay = 2000,
   userId = 'default-user',
+  citationConfig,
   onCitationSuggestionsUpdate,
   onCitationConnectionChange,
   onRegisterCitationInsert,
@@ -172,15 +174,37 @@ const Editor: React.FC<EditorProps> = ({
     try {
       const content = currentEditorStateRef.current.toJSON();
       console.log('[Editor] Saving content immediately');
-      await documentService.update(documentId, { content });
-      setLastSaved(new Date());
       
-      if (onSave) {
-        onSave(content, currentEditorStateRef.current);
+      // Retry logic for failed saves
+      let retries = 3;
+      let lastError = null;
+      
+      while (retries > 0) {
+        try {
+          await documentService.update(documentId, { content });
+          setLastSaved(new Date());
+          
+          if (onSave) {
+            onSave(content, currentEditorStateRef.current);
+          }
+          console.log('[Editor] Immediate save completed');
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            console.log(`[Editor] Save failed, retrying... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
+        }
       }
-      console.log('[Editor] Immediate save completed');
+      
+      if (retries === 0 && lastError) {
+        throw lastError;
+      }
     } catch (error) {
-      console.error('Failed to save immediately:', error);
+      console.error('Failed to save after all retries:', error);
+      // TODO: Show user notification about failed save
     } finally {
       setIsSaving(false);
     }
@@ -255,6 +279,7 @@ const Editor: React.FC<EditorProps> = ({
               <>
                 <CitationSuggestionPlugin
                   userId={userId}
+                  citationConfig={citationConfig}
                   onSuggestionsUpdate={onCitationSuggestionsUpdate}
                   onConnectionChange={onCitationConnectionChange}
                   onWsClientReady={(client) => {

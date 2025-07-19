@@ -2,7 +2,7 @@
 from typing import Dict, Set
 import json
 import asyncio
-from fastapi import WebSocket, WebSocketDisconnect, Depends, Query
+from fastapi import WebSocket, WebSocketDisconnect, Depends
 from fastapi.websockets import WebSocketState
 from app.core.config import settings
 from app.services.citation_engine import CitationEngine
@@ -72,10 +72,17 @@ manager = ConnectionManager()
 
 
 async def websocket_citation_endpoint(
-    websocket: WebSocket,
-    user_id: str = Query(...)
+    websocket: WebSocket
 ):
     """WebSocket endpoint for real-time citation suggestions."""
+    # Extract query parameters from the WebSocket URL
+    query_params = dict(websocket.query_params)
+    user_id = query_params.get("user_id")
+    
+    if not user_id:
+        await websocket.close(code=1008, reason="Missing user_id parameter")
+        return
+    
     await manager.connect(websocket, user_id)
     
     # Get database session
@@ -125,17 +132,17 @@ async def websocket_citation_endpoint(
                         "type": "suggestions",
                         "results": [
                             {
-                                "paperId": s.paper_id,
+                                "paperId": str(s.paper_id),  # Convert UUID to string
                                 "title": s.title,
                                 "authors": s.authors,
                                 "year": s.year,
                                 "abstract": s.abstract,
-                                "confidence": s.confidence,
+                                "confidence": float(s.confidence) if s.confidence is not None else 0.0,
                                 "citationStyle": s.citation_style,
                                 "displayText": s.display_text,
                                 "chunkText": s.chunk_text[:200] + "..." if len(s.chunk_text) > 200 else s.chunk_text,
-                                "chunkIndex": s.chunk_index,
-                                "chunkId": s.chunk_id,
+                                "chunkIndex": int(s.chunk_index) if s.chunk_index is not None else 0,
+                                "chunkId": str(s.chunk_id) if s.chunk_id else '',  # Convert UUID to string
                                 "sectionTitle": s.section_title
                             }
                             for s in suggestions

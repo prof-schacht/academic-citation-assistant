@@ -38,6 +38,12 @@ export interface CitationSuggestion extends Omit<Paper, 'id'> {
   chunkIndex?: number;
   chunkId?: string;
   sectionTitle?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  pageBoundaries?: Array<{
+    page: number;
+    percentage: number;
+  }>;
 }
 
 // Document-Paper relationship
@@ -63,11 +69,14 @@ export interface TextContext {
 
 // WebSocket message types
 export interface WSMessage {
-  type: 'suggest' | 'suggestions' | 'error' | 'ping' | 'pong';
+  type: 'suggest' | 'suggestions' | 'error' | 'ping' | 'pong' | 'update_preferences' | 'preferences_updated';
   text?: string;
   context?: TextContext;
   results?: CitationSuggestion[];
   message?: string;
+  preferences?: any;
+  searchStrategy?: string;
+  usedReranking?: boolean;
 }
 
 // API response types

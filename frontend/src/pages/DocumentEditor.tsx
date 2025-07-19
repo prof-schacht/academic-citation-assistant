@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Settings } from 'lucide-react';
 import Editor from '../components/Editor/Editor';
 import CitationPanel from '../components/CitationPanel/CitationPanel';
 import DocumentPapers from '../components/DocumentPapersSimple';
 import ExportDialog from '../components/ExportDialog';
 import PdfViewer from '../components/PdfViewer';
 import PaperUploadModal from '../components/PaperUploadModal';
+import { CitationSettings } from '../components/CitationSettings';
 import { documentService } from '../services/documentService';
 import { documentPaperService } from '../services/documentPaperService';
 import { OverleafService } from '../services/overleafService';
 import type { DocumentType } from '../services/documentService';
 import type { EditorState } from 'lexical';
-import type { CitationSuggestion } from '../services/websocketService';
+import type { CitationSuggestion, CitationConfig } from '../services/websocketService';
 
 // Global counter for debugging
 let effectRunCount = 0;
@@ -37,6 +39,13 @@ const DocumentEditor: React.FC = () => {
   const [isExportingToOverleaf, setIsExportingToOverleaf] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState<CitationSuggestion | null>(null);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [showCitationSettings, setShowCitationSettings] = useState(false);
+  const [highlightChunkInPdf, setHighlightChunkInPdf] = useState(false);
+  const [citationConfig, setCitationConfig] = useState<CitationConfig>({
+    useEnhanced: true,
+    useReranking: true,
+    searchStrategy: 'hybrid'
+  });
   const editorStateRef = useRef<EditorState | null>(null);
   const insertCitationRef = useRef<((citation: CitationSuggestion) => void) | null>(null);
   const editorSaveRef = useRef<(() => void) | null>(null);
@@ -346,7 +355,19 @@ const DocumentEditor: React.FC = () => {
   };
 
   const handleViewPaperDetails = (paper: CitationSuggestion) => {
-    console.log('Viewing paper details:', paper.title);
+    console.log('[DocumentEditor] handleViewPaperDetails called with:', {
+      title: paper.title,
+      paperId: paper.paperId,
+      pageStart: paper.pageStart,
+      pageEnd: paper.pageEnd,
+      pageBoundaries: paper.pageBoundaries,
+      hasChunkText: !!paper.chunkText,
+      sectionTitle: paper.sectionTitle
+    });
+    // Check if paper has page information (meaning it came from a citation suggestion with chunk data)
+    const hasChunkInfo = paper.pageStart !== undefined || paper.chunkText !== undefined;
+    console.log('[DocumentEditor] hasChunkInfo:', hasChunkInfo);
+    setHighlightChunkInPdf(hasChunkInfo);
     setSelectedPaper(paper);
     setShowPdfViewer(true);
   };
@@ -354,6 +375,7 @@ const DocumentEditor: React.FC = () => {
   const handleClosePdfViewer = () => {
     setShowPdfViewer(false);
     setSelectedPaper(null);
+    setHighlightChunkInPdf(false);
   };
 
   if (isLoading) {
@@ -446,12 +468,23 @@ const DocumentEditor: React.FC = () => {
                 </>
               )}
             </button>
-            <button
-              onClick={() => setShowCitationPanel(!showCitationPanel)}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              {showCitationPanel ? 'Hide' : 'Show'} Citations
-            </button>
+            <div className="flex items-center gap-2">
+              {showCitationPanel && (
+                <button
+                  onClick={() => setShowCitationSettings(!showCitationSettings)}
+                  className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
+                  title="Citation Settings"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={() => setShowCitationPanel(!showCitationPanel)}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                {showCitationPanel ? 'Hide' : 'Show'} Citations
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -524,6 +557,7 @@ const DocumentEditor: React.FC = () => {
                 onSave={handleSave}
                 autoSaveDelay={2000}
                 userId="test-user"
+                citationConfig={citationConfig}
                 onCitationSuggestionsUpdate={setCitationSuggestions}
                 onCitationConnectionChange={setCitationConnectionStatus}
                 onRegisterCitationInsert={(handler) => {
@@ -544,8 +578,19 @@ const DocumentEditor: React.FC = () => {
                 <Panel 
                   defaultSize={showPdfViewer ? 20 : 40}
                   minSize={20}
-                  className="bg-gray-50 overflow-hidden"
+                  className="bg-gray-50 overflow-hidden relative"
                 >
+                  {/* Floating Citation Settings */}
+                  {showCitationSettings && (
+                    <div className="absolute top-4 right-4 z-10 shadow-lg rounded-lg">
+                      <CitationSettings 
+                        config={citationConfig}
+                        onConfigChange={(newConfig) => {
+                          setCitationConfig(prev => ({ ...prev, ...newConfig }));
+                        }}
+                      />
+                    </div>
+                  )}
                   <CitationPanel 
                     documentId={document.id} 
                     suggestions={citationSuggestions}
@@ -578,6 +623,7 @@ const DocumentEditor: React.FC = () => {
                   <PdfViewer
                     paper={selectedPaper}
                     onClose={handleClosePdfViewer}
+                    highlightChunk={highlightChunkInPdf}
                   />
                 </Panel>
               </>
@@ -607,14 +653,42 @@ const DocumentEditor: React.FC = () => {
                       <div className="text-sm text-gray-600 mt-1">
                         {citation.authors?.join(', ')} {citation.year && `(${citation.year})`}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Added to bibliography ✓
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="text-xs text-gray-500">
+                          Added to bibliography ✓
+                        </div>
+                        <button
+                          onClick={() => {
+                            console.log('[DocumentEditor] Viewing details for inserted citation:', {
+                              title: citation.title,
+                              paperId: citation.paperId,
+                              pageStart: citation.pageStart,
+                              pageEnd: citation.pageEnd,
+                              note: 'Inserted citations do not have page info'
+                            });
+                            handleViewPaperDetails(citation);
+                            setActiveTab('editor');
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          View Details
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+            
+            {/* Citation Settings */}
+            <div className="mb-4">
+              <CitationSettings 
+                config={citationConfig}
+                onConfigChange={(newConfig) => {
+                  setCitationConfig(prev => ({ ...prev, ...newConfig }));
+                }}
+              />
+            </div>
             
             {/* Suggestions Section */}
             <CitationPanel 
@@ -659,6 +733,11 @@ const DocumentEditor: React.FC = () => {
           console.log('Papers uploaded successfully');
         }}
       />
+      
+      {/* Version indicator */}
+      <div className="fixed bottom-4 right-4 text-xs text-gray-400 bg-gray-900 px-2 py-1 rounded z-50">
+        v0.2.6
+      </div>
     </div>
   );
 };

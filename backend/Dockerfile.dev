@@ -17,11 +17,15 @@ RUN mkdir -p app/api app/core app/db app/models app/services app/utils
 # Copy application code
 COPY app ./app
 COPY run.py ./
+COPY scripts ./scripts
 
 # Install Python dependencies directly (no venv needed in container)
 RUN pip install --upgrade pip
 RUN pip install uv
 RUN uv pip install --system -e ".[dev]"
+
+# Download and cache ML models
+RUN python scripts/download_models.py
 
 # Expose port
 EXPOSE 8000

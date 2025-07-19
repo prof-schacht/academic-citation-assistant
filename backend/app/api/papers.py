@@ -223,7 +223,10 @@ async def get_paper_chunks(
             "start_char": chunk.start_char,
             "end_char": chunk.end_char,
             "word_count": chunk.word_count,
-            "section_title": chunk.section_title
+            "section_title": chunk.section_title,
+            "page_start": chunk.page_start,
+            "page_end": chunk.page_end,
+            "page_boundaries": chunk.page_boundaries
         }
         for chunk in chunks
     ]

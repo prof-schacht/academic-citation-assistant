@@ -7,6 +7,12 @@ import type { TextContext, CitationSuggestion, WSMessage } from '../types';
 
 export type { TextContext, CitationSuggestion, WSMessage };
 
+export interface CitationConfig {
+  useEnhanced?: boolean;
+  useReranking?: boolean;
+  searchStrategy?: 'vector' | 'bm25' | 'hybrid';
+}
+
 export class CitationWebSocketClient {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
@@ -14,8 +20,13 @@ export class CitationWebSocketClient {
   private reconnectDelay = 1000; // Start with 1 second
   private messageQueue: WSMessage[] = [];
   private userId: string;
-  private isConnected = false;
   private pingInterval: NodeJS.Timeout | null = null;
+  private connectionTimeout: NodeJS.Timeout | null = null;
+  private config: CitationConfig = {
+    useEnhanced: true,
+    useReranking: true,
+    searchStrategy: 'hybrid'
+  };
   private callbacks: {
     onSuggestions?: (citations: CitationSuggestion[]) => void;
     onError?: (error: string) => void;
@@ -23,33 +34,70 @@ export class CitationWebSocketClient {
     onDisconnect?: () => void;
   } = {};
 
-  constructor(userId: string) {
+  constructor(userId: string, config?: CitationConfig) {
     this.userId = userId;
+    this.config = { ...this.config, ...config };
   }
 
   connect(): void {
-    if (this.socket?.readyState === WebSocket.OPEN) {
+    // Clear any existing connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) {
+      console.log('[WebSocket] Already connected or connecting, skipping');
       return;
     }
 
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8000/ws/citations?user_id=${this.userId}`;
+    // Build WebSocket URL with configuration parameters
+    const params = new URLSearchParams({
+      user_id: this.userId,
+      use_enhanced: String(this.config.useEnhanced ?? true),
+      use_reranking: String(this.config.useReranking ?? true),
+      search_strategy: this.config.searchStrategy ?? 'hybrid'
+    });
+    
+    const endpoint = this.config.useEnhanced ? '/ws/citations/v2' : '/ws/citations';
+    // Use the same host as the current page but with port 8000 for the backend
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname === 'localhost' ? 'localhost:8000' : `${window.location.hostname}:8000`;
+    const wsUrl = `${wsProtocol}//${wsHost}${endpoint}?${params.toString()}`;
     console.log('[WebSocket] Connecting to:', wsUrl);
     
     try {
       this.socket = new WebSocket(wsUrl);
       
+      // Set connection timeout (5 seconds)
+      this.connectionTimeout = setTimeout(() => {
+        if (this.socket?.readyState !== WebSocket.OPEN) {
+          console.error('[WebSocket] Connection timeout after 5 seconds');
+          this.socket?.close();
+          this.handleReconnection();
+        }
+      }, 5000);
+      
       this.socket.onopen = () => {
-        console.log('WebSocket connected');
-        this.isConnected = true;
+        console.log('WebSocket connected, readyState:', this.socket?.readyState);
+        // Verify socket is actually open
+        if (this.socket?.readyState !== WebSocket.OPEN) {
+          console.error('[WebSocket] onopen fired but socket not in OPEN state!');
+          return;
+        }
+        // Clear the connection timeout
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
         this.reconnectAttempts = 0;
         this.reconnectDelay = 1000;
         
-        // Send queued messages
-        while (this.messageQueue.length > 0) {
-          const message = this.messageQueue.shift();
-          if (message) {
-            this.sendMessage(message);
-          }
+        // Send queued messages (with error handling)
+        const messagesToSend = [...this.messageQueue];
+        this.messageQueue = [];
+        for (const message of messagesToSend) {
+          this.sendMessage(message);
         }
         
         // Start ping interval
@@ -70,13 +118,26 @@ export class CitationWebSocketClient {
 
       this.socket.onerror = (error) => {
         console.error('WebSocket error:', error);
+        console.error('WebSocket readyState:', this.socket?.readyState);
+        console.error('WebSocket URL was:', this.socket?.url);
         this.callbacks.onError?.('WebSocket connection error');
       };
 
-      this.socket.onclose = () => {
-        console.log('WebSocket disconnected');
-        this.isConnected = false;
+      this.socket.onclose = (event) => {
+        console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
+        // Clear the connection timeout if it exists
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
         this.stopPingInterval();
+        
+        // Clear message queue on abnormal closure
+        if (event.code !== 1000) { // 1000 = normal closure
+          console.log('[WebSocket] Abnormal closure, clearing message queue');
+          this.messageQueue = [];
+        }
+        
         this.callbacks.onDisconnect?.();
         
         // Attempt to reconnect
@@ -90,11 +151,16 @@ export class CitationWebSocketClient {
 
   disconnect(): void {
     this.stopPingInterval();
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
     if (this.socket) {
-      this.socket.close();
+      if (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING) {
+        this.socket.close();
+      }
       this.socket = null;
     }
-    this.isConnected = false;
     this.messageQueue = [];
   }
 
@@ -130,13 +196,68 @@ export class CitationWebSocketClient {
   }
 
   getConnectionStatus(): boolean {
-    return this.isConnected;
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Update citation configuration and reconnect with new settings
+   */
+  updateConfig(config: Partial<CitationConfig>): void {
+    const configChanged = 
+      config.useEnhanced !== this.config.useEnhanced ||
+      config.useReranking !== this.config.useReranking ||
+      config.searchStrategy !== this.config.searchStrategy;
+    
+    this.config = { ...this.config, ...config };
+    
+    // Reconnect if configuration changed and we're connected
+    if (configChanged) {
+      if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) {
+        console.log('[WebSocket] Configuration changed, reconnecting...');
+        this.disconnect();
+        // Delay reconnection to avoid race conditions
+        setTimeout(() => {
+          this.connect();
+        }, 100);
+      } else if (!this.socket) {
+        // If no socket exists, just connect with new config
+        this.connect();
+      }
+    }
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig(): CitationConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Send preferences update message to server (for v2 endpoint)
+   */
+  updatePreferences(preferences: Partial<CitationConfig>): void {
+    if (this.config.useEnhanced) {
+      this.sendMessage({
+        type: 'update_preferences',
+        preferences: preferences as any
+      });
+    }
   }
 
   private handleMessage(message: WSMessage): void {
     switch (message.type) {
       case 'suggestions':
         if (message.results) {
+          console.log('[WebSocket] Received suggestions:', {
+            count: message.results.length,
+            firstSuggestion: message.results[0] ? {
+              title: message.results[0].title,
+              pageStart: message.results[0].pageStart,
+              pageEnd: message.results[0].pageEnd,
+              pageBoundaries: message.results[0].pageBoundaries
+            } : null
+          });
           this.callbacks.onSuggestions?.(message.results);
         }
         break;
@@ -153,10 +274,26 @@ export class CitationWebSocketClient {
 
   private sendMessage(message: WSMessage): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify(message));
+      console.log('[WebSocket] Sending message:', message);
+      try {
+        this.socket.send(JSON.stringify(message));
+      } catch (error) {
+        console.error('[WebSocket] Error sending message:', error);
+        this.callbacks.onError?.('Failed to send message');
+      }
+    } else if (this.socket?.readyState === WebSocket.CONNECTING) {
+      console.log('[WebSocket] Still connecting, queueing message. ReadyState:', this.socket?.readyState);
+      // Queue the message for later with a limit to prevent memory issues
+      if (this.messageQueue.length < 10) {
+        this.messageQueue.push(message);
+      } else {
+        console.warn('[WebSocket] Message queue full, dropping oldest message');
+        this.messageQueue.shift(); // Remove oldest
+        this.messageQueue.push(message);
+      }
     } else {
-      // Queue the message for later
-      this.messageQueue.push(message);
+      console.warn('[WebSocket] Socket is closed or closing, not queueing message. ReadyState:', this.socket?.readyState);
+      // Don't queue messages if socket is closed or closing
     }
   }
 
@@ -283,10 +420,13 @@ export class CitationWebSocketClient {
 // Singleton instance management
 let instance: CitationWebSocketClient | null = null;
 
-export function getCitationWebSocketClient(userId: string): CitationWebSocketClient {
+export function getCitationWebSocketClient(userId: string, config?: CitationConfig): CitationWebSocketClient {
   if (!instance || instance['userId'] !== userId) {
     instance?.disconnect();
-    instance = new CitationWebSocketClient(userId);
+    instance = new CitationWebSocketClient(userId, config);
+  } else if (config) {
+    // Update config if provided
+    instance.updateConfig(config);
   }
   return instance;
 }

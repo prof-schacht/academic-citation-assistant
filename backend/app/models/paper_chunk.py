@@ -1,6 +1,6 @@
 """Paper chunk model for storing text chunks with embeddings."""
-from sqlalchemy import Column, String, Text, Integer, Float, ForeignKey, DateTime, Index
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Column, String, Text, Integer, Float, ForeignKey, DateTime, Index, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 import uuid
@@ -28,6 +28,15 @@ class PaperChunk(Base):
     
     # Metadata
     section_title = Column(String(255))  # E.g., "Introduction", "Methods", etc.
+    chunk_type = Column(String(50))  # abstract, intro, methods, results, discussion, conclusion, references
+    sentence_count = Column(Integer)  # Number of sentences in the chunk
+    semantic_score = Column(Float)  # Semantic coherence score (if using semantic chunking)
+    chunk_metadata = Column(JSON)  # Additional metadata as JSON object
+    
+    # Page information
+    page_start = Column(Integer)  # Starting page number (1-based)
+    page_end = Column(Integer)    # Ending page number (1-based)
+    page_boundaries = Column(JSON)  # Detailed page boundary information
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

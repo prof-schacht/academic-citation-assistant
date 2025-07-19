@@ -12,12 +12,13 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models import Paper, PaperChunk
 from app.services.embedding import EmbeddingService
-# TextChunkingService is defined in this file
+from app.services.advanced_chunking import AdvancedChunkingService, ChunkingStrategy, EnhancedTextChunk
 from app.core.config import settings
 from app.utils.logging_utils import log_async_info, log_async_error
 from app.models.system_log import LogCategory
 from app.services.improved_metadata_extractor import ImprovedMetadataExtractor
 from app.services.external_metadata_service import MetadataFetcherService
+from app.services.pdf_page_extractor import PDFPageExtractor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,9 +30,16 @@ class PaperProcessorService:
     def __init__(self):
         self.markitdown = MarkItDown()
         self.embedding_service = EmbeddingService()
-        self.chunking_service = TextChunkingService()
+        self.chunking_service = AdvancedChunkingService(
+            chunk_size=100,  # Much smaller chunks for better semantic matching
+            chunk_overlap=20,  # Smaller overlap too
+            min_chunk_size=50,
+            max_chunk_size=150,  # Keep chunks small and focused
+            embedding_model=None  # Will use existing embedding service
+        )
         self.metadata_extractor = ImprovedMetadataExtractor()
         self.external_metadata_service = MetadataFetcherService(email="support@academic-citation.com")
+        self.pdf_page_extractor = PDFPageExtractor()
     
     @classmethod
     async def process_paper(cls, paper_id: str, file_path: str) -> None:
@@ -67,8 +75,20 @@ class PaperProcessorService:
                     details={"file_path": file_path}
                 )
                 
-                # Extract text using MarkItDown
-                markdown_text = processor._extract_text(file_path)
+                # Extract text - use PDF extractor for PDFs to get page information
+                page_mappings = None
+                if file_path.lower().endswith('.pdf'):
+                    try:
+                        # Try to extract with page information
+                        markdown_text, page_mappings = processor.pdf_page_extractor.extract_text_with_pages(file_path)
+                        logger.info(f"Extracted text with page mappings from {len(page_mappings)} pages")
+                    except Exception as e:
+                        logger.warning(f"Failed to extract with page info, falling back to MarkItDown: {e}")
+                        markdown_text = processor._extract_text(file_path)
+                else:
+                    # Use MarkItDown for non-PDF files
+                    markdown_text = processor._extract_text(file_path)
+                
                 if not markdown_text:
                     raise ValueError("Failed to extract text from file")
                 
@@ -100,24 +120,27 @@ class PaperProcessorService:
                     metadata.update(identifiers)
                 
                 # Update paper with extracted metadata
-                paper.title = metadata.get('title', paper.title)
+                paper.title = processor._clean_text_for_storage(metadata.get('title', paper.title) or '')[:500]  # Limit title length
                 paper.authors = metadata.get('authors', paper.authors)
-                paper.abstract = metadata.get('abstract', paper.abstract)
+                paper.abstract = processor._clean_text_for_storage(metadata.get('abstract', paper.abstract) or '')
                 paper.year = metadata.get('year', paper.year)
-                paper.journal = metadata.get('journal', metadata.get('venue', paper.journal))
+                paper.journal = processor._clean_text_for_storage(metadata.get('journal', metadata.get('venue', paper.journal)) or '')
                 paper.doi = metadata.get('doi', paper.doi)
                 paper.arxiv_id = metadata.get('arxiv_id', paper.arxiv_id)
                 paper.citation_count = metadata.get('citation_count', paper.citation_count)
                 paper.source_url = metadata.get('url', metadata.get('pdf_url', paper.source_url))
                 paper.metadata_source = metadata.get('source', 'text_extraction')
-                paper.full_text = markdown_text
+                paper.full_text = markdown_text  # Already cleaned in _extract_text
                 
-                # Chunk the text (250 words with 50-word overlap for better granularity)
+                # Chunk the text using advanced chunking (sentence-aware by default)
                 chunks = processor.chunking_service.chunk_text(
                     markdown_text,
-                    chunk_size=250,  # Reduced from 500 for better search granularity
-                    overlap_size=50,
-                    respect_sentences=True
+                    strategy=ChunkingStrategy.SENTENCE_AWARE,  # Use sentence-aware chunking
+                    metadata={
+                        'paper_id': paper_id,
+                        'title': paper.title,
+                        'authors': paper.authors
+                    }
                 )
                 
                 logger.info(f"Created {len(chunks)} chunks for paper {paper_id}")
@@ -133,18 +156,34 @@ class PaperProcessorService:
                 paper_chunks = []
                 for i, chunk in enumerate(chunks):
                     # Generate embedding for this chunk
-                    chunk_embedding = await processor.embedding_service.generate_embedding(chunk.content)
+                    chunk_embedding = await processor.embedding_service.generate_embedding(chunk.text)
+                    
+                    # Get page information for this chunk if available
+                    page_info = {}
+                    if page_mappings:
+                        page_info = processor.pdf_page_extractor.get_page_for_chunk(
+                            chunk.start_char, 
+                            chunk.end_char, 
+                            page_mappings
+                        )
                     
                     # Create PaperChunk record
                     paper_chunk = PaperChunk(
                         paper_id=UUID(paper_id),
-                        content=chunk.content,
-                        chunk_index=i,
+                        content=chunk.text,  # Already cleaned since it comes from cleaned markdown_text
+                        chunk_index=chunk.chunk_index,
                         start_char=chunk.start_char,
                         end_char=chunk.end_char,
                         word_count=chunk.word_count,
                         embedding=chunk_embedding,
-                        section_title=chunk.section_title
+                        section_title=processor._clean_text_for_storage(chunk.section or ''),
+                        chunk_type=chunk.chunk_type,
+                        sentence_count=chunk.sentence_count,
+                        semantic_score=chunk.semantic_score,
+                        chunk_metadata=chunk.metadata,
+                        page_start=page_info.get('page_start'),
+                        page_end=page_info.get('page_end'),
+                        page_boundaries=page_info.get('page_boundaries', [])
                     )
                     db.add(paper_chunk)
                     paper_chunks.append(paper_chunk)
@@ -154,7 +193,7 @@ class PaperProcessorService:
                         logger.info(f"Processed {i + 1}/{len(chunks)} chunks for paper {paper_id}")
                 
                 # Also generate and store a main embedding for the paper (abstract or first chunk)
-                embedding_text = paper.abstract if paper.abstract else chunks[0].content if chunks else ""
+                embedding_text = paper.abstract if paper.abstract else chunks[0].text if chunks else ""
                 if embedding_text:
                     embedding = await processor.embedding_service.generate_embedding(embedding_text)
                     paper.embedding = embedding
@@ -212,12 +251,36 @@ class PaperProcessorService:
                 raise FileNotFoundError(f"File not found: {file_path}")
             
             result = self.markitdown.convert(file_path)
-            return result.text_content
+            text = result.text_content
+            
+            # Clean the text to remove null bytes and other problematic characters
+            text = self._clean_text_for_storage(text)
+            
+            return text
         except Exception as e:
             logger.error(f"MarkItDown extraction failed: {e}")
             if isinstance(e, FileNotFoundError):
                 raise
             return ""
+    
+    def _clean_text_for_storage(self, text: str) -> str:
+        """Clean text to ensure it's safe for PostgreSQL storage."""
+        if not text:
+            return ""
+        
+        # Remove null bytes
+        text = text.replace('\x00', '')
+        
+        # Remove other control characters except newlines and tabs
+        import unicodedata
+        cleaned = []
+        for char in text:
+            if char in ('\n', '\t', '\r'):
+                cleaned.append(char)
+            elif unicodedata.category(char)[0] != 'C':  # C = Control characters
+                cleaned.append(char)
+        
+        return ''.join(cleaned)
     
     def _extract_metadata(self, markdown_text: str) -> Dict[str, any]:
         """

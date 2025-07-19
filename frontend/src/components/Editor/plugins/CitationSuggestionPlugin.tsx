@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $getSelection, $isRangeSelection, $getRoot } from 'lexical';
 import type { EditorState } from 'lexical';
-import { getCitationWebSocketClient, CitationWebSocketClient, CitationConfig } from '../../../services/websocketService';
-import type { CitationSuggestion } from '../../../services/websocketService';
+import { getCitationWebSocketClient, CitationWebSocketClient } from '../../../services/websocketService';
+import type { CitationSuggestion, CitationConfig } from '../../../services/websocketService';
 import { debounce } from '../../../utils/debounce';
 
 interface CitationSuggestionPluginProps {

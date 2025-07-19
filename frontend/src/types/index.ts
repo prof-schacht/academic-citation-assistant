@@ -63,11 +63,14 @@ export interface TextContext {
 
 // WebSocket message types
 export interface WSMessage {
-  type: 'suggest' | 'suggestions' | 'error' | 'ping' | 'pong';
+  type: 'suggest' | 'suggestions' | 'error' | 'ping' | 'pong' | 'update_preferences' | 'preferences_updated';
   text?: string;
   context?: TextContext;
   results?: CitationSuggestion[];
   message?: string;
+  preferences?: any;
+  searchStrategy?: string;
+  usedReranking?: boolean;
 }
 
 // API response types

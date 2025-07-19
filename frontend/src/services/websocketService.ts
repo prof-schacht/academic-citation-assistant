@@ -13,6 +13,8 @@ export interface CitationConfig {
   searchStrategy?: 'vector' | 'bm25' | 'hybrid';
 }
 
+export type { CitationConfig };
+
 export class CitationWebSocketClient {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;

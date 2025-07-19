@@ -283,7 +283,12 @@ class HybridSearchService:
                 p.title,
                 p.authors,
                 p.year,
-                p.abstract
+                p.abstract,
+                pc.section_title,
+                pc.page_start,
+                pc.page_end,
+                pc.page_boundaries,
+                pc.chunk_index
             FROM paper_chunks pc
             JOIN papers p ON pc.paper_id = p.id
             {where_clause}
@@ -304,7 +309,12 @@ class HybridSearchService:
                 'title': row.title,
                 'authors': row.authors,
                 'year': row.year,
-                'abstract': row.abstract
+                'abstract': row.abstract,
+                'section': row.section_title,
+                'page_start': row.page_start,
+                'page_end': row.page_end,
+                'page_boundaries': row.page_boundaries,
+                'chunk_index': row.chunk_index
             }
             results.append((
                 str(row.chunk_id),
@@ -332,7 +342,12 @@ class HybridSearchService:
             Paper.title,
             Paper.authors,
             Paper.year,
-            Paper.abstract
+            Paper.abstract,
+            PaperChunk.section_title,
+            PaperChunk.page_start,
+            PaperChunk.page_end,
+            PaperChunk.page_boundaries,
+            PaperChunk.chunk_index
         ).join(Paper, PaperChunk.paper_id == Paper.id)
         
         # Apply filters
@@ -355,7 +370,12 @@ class HybridSearchService:
                     'title': row.title,
                     'authors': row.authors,
                     'year': row.year,
-                    'abstract': row.abstract
+                    'abstract': row.abstract,
+                    'section': row.section_title,
+                    'page_start': row.page_start,
+                    'page_end': row.page_end,
+                    'page_boundaries': row.page_boundaries,
+                    'chunk_index': row.chunk_index
                 }
                 scored_results.append((
                     chunk_id,

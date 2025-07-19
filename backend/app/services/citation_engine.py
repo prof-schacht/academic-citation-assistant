@@ -72,7 +72,7 @@ class RankingService:
         # Check paragraph relevance
         if context.paragraph:
             para_words = set(context.paragraph.lower().split())
-            abstract_words = set(result.abstract.lower().split()[:50])  # First 50 words
+            abstract_words = set(result.abstract.lower().split()[:50]) if result.abstract else set()  # First 50 words
             overlap = len(para_words & abstract_words)
             score += min(overlap * 0.02, 0.2)
             

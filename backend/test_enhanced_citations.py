@@ -32,8 +32,9 @@ async def test_enhanced_citations():
             current_sentence="Machine learning models have shown remarkable performance in various tasks.",
             previous_sentence="Recent advances in AI have been significant.",
             next_sentence="These models can be applied to many domains.",
+            paragraph="Recent advances in AI have been significant. Machine learning models have shown remarkable performance in various tasks. These models can be applied to many domains.",
             section="Introduction",
-            surrounding_text="Recent advances in AI have been significant. Machine learning models have shown remarkable performance in various tasks. These models can be applied to many domains."
+            position=1
         )
         
         # Test with enhanced features disabled

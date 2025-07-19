@@ -1,6 +1,51 @@
 # Usage Guide - Academic Citation Assistant
 
-## Version 0.2.2 - Latest Updates (July 19, 2025)
+## Version 0.2.3 - Latest Updates (July 19, 2025)
+
+### Enhanced Citation Engine Improvements
+
+1. **Comprehensive Logging and Debugging**
+   - Added detailed logging throughout the enhanced citation pipeline
+   - Track BM25 fitting progress (shows document processing count)
+   - Monitor hybrid search execution and results
+   - Identify bottlenecks with timeout logging
+
+2. **Timeout Protection**
+   - BM25 fitting: 30-second timeout
+   - Hybrid search: 20-second timeout  
+   - Reranking: 30-second timeout
+   - Prevents WebSocket connections from hanging indefinitely
+
+3. **Memory Optimization**
+   - Limited BM25 fitting to 10,000 documents maximum
+   - Handles empty corpus gracefully
+   - Improved error handling with fallback mechanisms
+
+4. **Bug Fixes**
+   - Fixed null abstract handling in citation ranking
+   - Fixed AttributeError when papers have missing abstracts
+   - Enhanced citations now work properly with all search strategies
+
+### Testing Enhanced Citations
+
+To test the enhanced citation features:
+
+```bash
+cd backend
+python test_enhanced_citations.py
+```
+
+This will test:
+- Vector search only (baseline)
+- Hybrid search without reranking
+- Full enhanced features (hybrid + reranking)
+
+Expected behavior:
+- Vector search: Fast, semantic similarity only
+- Hybrid search: Combines keyword (BM25) and semantic search
+- With reranking: Higher quality results but adds 200-500ms latency
+
+## Version 0.2.2 - Previous Updates (July 19, 2025)
 
 ### Critical Fixes Implemented
 

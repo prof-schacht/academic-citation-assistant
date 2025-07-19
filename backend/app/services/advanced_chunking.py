@@ -15,8 +15,10 @@ from sentence_transformers import SentenceTransformer
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
-    nltk.download('punkt')
-    nltk.download('punkt_tab')
+    try:
+        nltk.download('punkt', quiet=True)
+    except:
+        pass
 
 logger = logging.getLogger(__name__)
 

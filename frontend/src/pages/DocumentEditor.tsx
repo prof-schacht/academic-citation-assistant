@@ -653,8 +653,26 @@ const DocumentEditor: React.FC = () => {
                       <div className="text-sm text-gray-600 mt-1">
                         {citation.authors?.join(', ')} {citation.year && `(${citation.year})`}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Added to bibliography ✓
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="text-xs text-gray-500">
+                          Added to bibliography ✓
+                        </div>
+                        <button
+                          onClick={() => {
+                            console.log('[DocumentEditor] Viewing details for inserted citation:', {
+                              title: citation.title,
+                              paperId: citation.paperId,
+                              pageStart: citation.pageStart,
+                              pageEnd: citation.pageEnd,
+                              note: 'Inserted citations do not have page info'
+                            });
+                            handleViewPaperDetails(citation);
+                            setActiveTab('editor');
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          View Details
+                        </button>
                       </div>
                     </div>
                   ))}

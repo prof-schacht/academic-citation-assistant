@@ -249,6 +249,15 @@ export class CitationWebSocketClient {
     switch (message.type) {
       case 'suggestions':
         if (message.results) {
+          console.log('[WebSocket] Received suggestions:', {
+            count: message.results.length,
+            firstSuggestion: message.results[0] ? {
+              title: message.results[0].title,
+              pageStart: message.results[0].pageStart,
+              pageEnd: message.results[0].pageEnd,
+              pageBoundaries: message.results[0].pageBoundaries
+            } : null
+          });
           this.callbacks.onSuggestions?.(message.results);
         }
         break;

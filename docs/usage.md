@@ -1,6 +1,118 @@
 # Usage Guide - Academic Citation Assistant
 
-## Version 0.2.3 - Latest Updates (July 19, 2025)
+## Version 0.2.5 - PDF Chunk Highlighting and Navigation (July 19, 2025)
+
+### New Feature: Direct Navigation to Citation Sources in PDFs
+
+You can now jump directly to the specific section of a PDF where a citation chunk was found! This feature saves significant time by taking you straight to the relevant content.
+
+#### How It Works
+
+1. **Click "View Details"** on any citation suggestion
+2. The PDF viewer will:
+   - Open the paper's PDF
+   - Navigate to the exact page where the chunk was found
+   - Highlight the relevant text in yellow
+   - Show page information in the header
+
+#### What's New
+
+1. **Page Tracking**
+   - PDFs are now processed to extract page numbers for each chunk
+   - Page boundaries are preserved during text extraction
+   - Works with all newly processed PDFs
+
+2. **Smart Navigation**
+   - Automatically jumps to the correct page
+   - Highlights the matched text
+   - Shows which pages contain the chunk (e.g., "Showing chunk from page 5 to 6")
+
+3. **Visual Indicators**
+   - Yellow highlight with border for easy identification
+   - Clear highlights button to remove highlighting
+   - Page and section information in the viewer header
+
+#### Technical Details
+
+- Uses PyMuPDF for accurate page extraction
+- Integrates @react-pdf-viewer plugins for highlighting
+- Stores page_start, page_end, and page_boundaries in database
+- Backwards compatible - PDFs without page info still work normally
+
+#### Tips
+
+- Process PDFs again to add page information to existing papers
+- The highlighting works best with exact text matches
+- Use the zoom controls to adjust readability after navigation
+
+---
+
+## Version 0.2.4 - Enhanced Citations Performance Optimization (July 19, 2025)
+
+### Major Performance Improvements
+
+Enhanced citations now work efficiently without timeouts! Instead of falling back after failures, the system has been optimized for real-world performance.
+
+#### Optimizations
+
+1. **Smarter Candidate Selection**
+   - Reduced reranking candidates from 150 to 30 (80% reduction)
+   - Pre-filter to top 20 before reranking
+   - Result: 5x faster processing
+
+2. **Reranking Disabled by Default**
+   - Most users get great results with hybrid search alone
+   - Enable reranking only when you need the absolute best results
+   - Clear UI messaging about 2-5 second latency
+
+3. **Technical Improvements**
+   - Increased batch size from 32 to 64
+   - Disabled redundant context scoring
+   - Optimized result limiting
+
+#### Performance Results
+
+- **Vector Search**: ~0.5 seconds
+- **Hybrid Search**: ~0.6 seconds
+- **With Reranking**: ~1.1 seconds (previously 10+ seconds timeout)
+
+#### How to Use
+
+1. **For Fast Results**: Use default settings (Enhanced ON, Reranking OFF)
+2. **For Best Quality**: Enable reranking when writing critical sections
+3. **For Research**: Hybrid search provides the best balance
+
+---
+
+## Version 0.2.3 - Enhanced Citations Fixed (July 19, 2025)
+
+### Critical Fixes for Enhanced Citations
+
+**Enhanced citations now work properly!** The system was failing to deliver results to the frontend due to UUID serialization errors and timeout issues.
+
+#### Issues Fixed
+
+1. **UUID Serialization Error**
+   - Paper IDs (UUIDs) are now converted to strings before JSON serialization
+   - Fixed "Object of type UUID is not JSON serializable" errors
+   - Affects both `paperId` and `chunkId` fields
+
+2. **Reduced Timeouts for Better Responsiveness**
+   - Reranking: 30s → 10s (prevents consistent failures)
+   - BM25 fitting: 30s → 15s (faster initialization)
+   - Hybrid search: 20s → 10s (quicker results)
+
+3. **WebSocket Query Parameters**
+   - Fixed FastAPI Query parameter issues in WebSocket endpoints
+   - Manual extraction from query strings now works correctly
+
+#### How to Test
+
+1. Navigate to Document Editor
+2. Enable "Enhanced Citations" in settings
+3. Type academic text (e.g., "Machine learning and deep learning...")
+4. Verify suggestions appear within 2-5 seconds
+5. Check for score breakdowns in enhanced results
 
 ### Enhanced Citation Engine Improvements
 

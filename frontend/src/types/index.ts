@@ -38,6 +38,12 @@ export interface CitationSuggestion extends Omit<Paper, 'id'> {
   chunkIndex?: number;
   chunkId?: string;
   sectionTitle?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  pageBoundaries?: Array<{
+    page: number;
+    percentage: number;
+  }>;
 }
 
 // Document-Paper relationship

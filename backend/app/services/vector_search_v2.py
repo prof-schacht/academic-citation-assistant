@@ -105,6 +105,9 @@ class VectorSearchService:
                     pc.content as chunk_content,
                     pc.chunk_index,
                     pc.section_title,
+                    pc.page_start,
+                    pc.page_end,
+                    pc.page_boundaries,
                     p.id as paper_id,
                     p.title,
                     p.authors,
@@ -148,7 +151,10 @@ class VectorSearchService:
                         "doi": row.doi,
                         "citation_count": row.citation_count,
                         "section": row.section_title,
-                        "chunk_id": str(row.chunk_id)
+                        "chunk_id": str(row.chunk_id),
+                        "page_start": row.page_start,
+                        "page_end": row.page_end,
+                        "page_boundaries": row.page_boundaries
                     }
                 ))
                 

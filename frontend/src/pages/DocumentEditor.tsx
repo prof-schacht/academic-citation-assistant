@@ -40,6 +40,7 @@ const DocumentEditor: React.FC = () => {
   const [selectedPaper, setSelectedPaper] = useState<CitationSuggestion | null>(null);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [showCitationSettings, setShowCitationSettings] = useState(false);
+  const [highlightChunkInPdf, setHighlightChunkInPdf] = useState(false);
   const [citationConfig, setCitationConfig] = useState<CitationConfig>({
     useEnhanced: true,
     useReranking: true,
@@ -355,6 +356,9 @@ const DocumentEditor: React.FC = () => {
 
   const handleViewPaperDetails = (paper: CitationSuggestion) => {
     console.log('Viewing paper details:', paper.title);
+    // Check if paper has page information (meaning it came from a citation suggestion with chunk data)
+    const hasChunkInfo = paper.pageStart !== undefined || paper.chunkText !== undefined;
+    setHighlightChunkInPdf(hasChunkInfo);
     setSelectedPaper(paper);
     setShowPdfViewer(true);
   };
@@ -362,6 +366,7 @@ const DocumentEditor: React.FC = () => {
   const handleClosePdfViewer = () => {
     setShowPdfViewer(false);
     setSelectedPaper(null);
+    setHighlightChunkInPdf(false);
   };
 
   if (isLoading) {
@@ -609,6 +614,7 @@ const DocumentEditor: React.FC = () => {
                   <PdfViewer
                     paper={selectedPaper}
                     onClose={handleClosePdfViewer}
+                    highlightChunk={highlightChunkInPdf}
                   />
                 </Panel>
               </>
@@ -703,7 +709,7 @@ const DocumentEditor: React.FC = () => {
       
       {/* Version indicator */}
       <div className="fixed bottom-4 right-4 text-xs text-gray-400 bg-gray-900 px-2 py-1 rounded z-50">
-        v0.2.2
+        v0.2.4
       </div>
     </div>
   );

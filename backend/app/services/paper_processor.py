@@ -18,6 +18,7 @@ from app.utils.logging_utils import log_async_info, log_async_error
 from app.models.system_log import LogCategory
 from app.services.improved_metadata_extractor import ImprovedMetadataExtractor
 from app.services.external_metadata_service import MetadataFetcherService
+from app.services.pdf_page_extractor import PDFPageExtractor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class PaperProcessorService:
         )
         self.metadata_extractor = ImprovedMetadataExtractor()
         self.external_metadata_service = MetadataFetcherService(email="support@academic-citation.com")
+        self.pdf_page_extractor = PDFPageExtractor()
     
     @classmethod
     async def process_paper(cls, paper_id: str, file_path: str) -> None:
@@ -73,8 +75,20 @@ class PaperProcessorService:
                     details={"file_path": file_path}
                 )
                 
-                # Extract text using MarkItDown
-                markdown_text = processor._extract_text(file_path)
+                # Extract text - use PDF extractor for PDFs to get page information
+                page_mappings = None
+                if file_path.lower().endswith('.pdf'):
+                    try:
+                        # Try to extract with page information
+                        markdown_text, page_mappings = processor.pdf_page_extractor.extract_text_with_pages(file_path)
+                        logger.info(f"Extracted text with page mappings from {len(page_mappings)} pages")
+                    except Exception as e:
+                        logger.warning(f"Failed to extract with page info, falling back to MarkItDown: {e}")
+                        markdown_text = processor._extract_text(file_path)
+                else:
+                    # Use MarkItDown for non-PDF files
+                    markdown_text = processor._extract_text(file_path)
+                
                 if not markdown_text:
                     raise ValueError("Failed to extract text from file")
                 
@@ -144,6 +158,15 @@ class PaperProcessorService:
                     # Generate embedding for this chunk
                     chunk_embedding = await processor.embedding_service.generate_embedding(chunk.text)
                     
+                    # Get page information for this chunk if available
+                    page_info = {}
+                    if page_mappings:
+                        page_info = processor.pdf_page_extractor.get_page_for_chunk(
+                            chunk.start_char, 
+                            chunk.end_char, 
+                            page_mappings
+                        )
+                    
                     # Create PaperChunk record
                     paper_chunk = PaperChunk(
                         paper_id=UUID(paper_id),
@@ -157,7 +180,10 @@ class PaperProcessorService:
                         chunk_type=chunk.chunk_type,
                         sentence_count=chunk.sentence_count,
                         semantic_score=chunk.semantic_score,
-                        chunk_metadata=chunk.metadata
+                        chunk_metadata=chunk.metadata,
+                        page_start=page_info.get('page_start'),
+                        page_end=page_info.get('page_end'),
+                        page_boundaries=page_info.get('page_boundaries', [])
                     )
                     db.add(paper_chunk)
                     paper_chunks.append(paper_chunk)

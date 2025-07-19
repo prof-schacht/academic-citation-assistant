@@ -33,6 +33,11 @@ class PaperChunk(Base):
     semantic_score = Column(Float)  # Semantic coherence score (if using semantic chunking)
     chunk_metadata = Column(JSON)  # Additional metadata as JSON object
     
+    # Page information
+    page_start = Column(Integer)  # Starting page number (1-based)
+    page_end = Column(Integer)    # Ending page number (1-based)
+    page_boundaries = Column(JSON)  # Detailed page boundary information
+    
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     

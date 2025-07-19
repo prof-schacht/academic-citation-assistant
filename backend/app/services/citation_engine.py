@@ -31,6 +31,9 @@ class Citation:
     chunk_index: int = 0  # Which chunk in the paper
     chunk_id: str = ""    # Unique chunk identifier
     section_title: str = ""  # Section where chunk appears
+    page_start: Optional[int] = None  # Starting page number
+    page_end: Optional[int] = None    # Ending page number
+    page_boundaries: Optional[List[Dict]] = None  # Detailed page boundary info
 
 
 class RankingService:
@@ -155,7 +158,10 @@ class RankingService:
                 chunk_text=result.chunk_text,
                 chunk_index=result.chunk_index,
                 chunk_id=result.metadata.get("chunk_id", ""),
-                section_title=result.metadata.get("section", "")
+                section_title=result.metadata.get("section", ""),
+                page_start=result.metadata.get("page_start"),
+                page_end=result.metadata.get("page_end"),
+                page_boundaries=result.metadata.get("page_boundaries")
             )
             citations.append(citation)
             

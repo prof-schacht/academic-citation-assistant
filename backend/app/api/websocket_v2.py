@@ -54,6 +54,10 @@ class EnhancedConnectionManager:
                     await websocket.send_json(message)
                 except Exception as e:
                     logger.error(f"Error sending message to user {user_id}: {e}")
+                    logger.error(f"Message type: {type(message)}")
+                    logger.error(f"Message content: {str(message)[:500]}...")
+                    import traceback
+                    logger.error(f"Full traceback: {traceback.format_exc()}")
                     self.disconnect(user_id)
                     
     def check_rate_limit(self, user_id: str) -> bool:
@@ -176,28 +180,31 @@ async def websocket_citation_endpoint_v2(
                         # Format enhanced suggestions
                         results = [
                             {
-                                "paperId": s.paper_id,
+                                "paperId": str(s.paper_id),  # Convert UUID to string
                                 "title": s.title,
                                 "authors": s.authors,
                                 "year": s.year,
                                 "abstract": s.abstract,
-                                "confidence": s.confidence,
+                                "confidence": float(s.confidence) if s.confidence is not None else 0.0,
                                 "citationStyle": s.citation_style,
                                 "displayText": s.display_text,
                                 "chunkText": s.chunk_text[:200] + "..." if len(s.chunk_text) > 200 else s.chunk_text,
-                                "chunkIndex": s.chunk_index,
-                                "chunkId": s.chunk_id,
+                                "chunkIndex": int(s.chunk_index) if s.chunk_index is not None else 0,
+                                "chunkId": str(s.chunk_id) if s.chunk_id else '',  # Convert UUID to string
                                 "sectionTitle": s.section_title,
                                 "chunkType": s.chunk_type,
+                                "pageStart": s.page_start,
+                                "pageEnd": s.page_end,
+                                "pageBoundaries": s.page_boundaries,
                                 "scores": {
-                                    "hybrid": s.hybrid_score,
-                                    "bm25": s.bm25_score,
-                                    "rerank": s.rerank_score,
-                                    "confidence": s.confidence
+                                    "hybrid": float(s.hybrid_score) if s.hybrid_score is not None else 0.0,
+                                    "bm25": float(s.bm25_score) if s.bm25_score is not None else 0.0,
+                                    "rerank": float(s.rerank_score) if s.rerank_score is not None else 0.0,
+                                    "confidence": float(s.confidence) if s.confidence is not None else 0.0
                                 },
                                 "metadata": {
-                                    "sentenceCount": s.sentence_count,
-                                    "relevanceScores": s.relevance_scores
+                                    "sentenceCount": int(s.sentence_count) if s.sentence_count is not None else 0,
+                                    "relevanceScores": {k: float(v) if v is not None else 0.0 for k, v in (s.relevance_scores or {}).items()}
                                 }
                             }
                             for s in suggestions
@@ -213,18 +220,21 @@ async def websocket_citation_endpoint_v2(
                         # Format standard suggestions
                         results = [
                             {
-                                "paperId": s.paper_id,
+                                "paperId": str(s.paper_id),  # Convert UUID to string
                                 "title": s.title,
                                 "authors": s.authors,
                                 "year": s.year,
                                 "abstract": s.abstract,
-                                "confidence": s.confidence,
+                                "confidence": float(s.confidence) if s.confidence is not None else 0.0,
                                 "citationStyle": s.citation_style,
                                 "displayText": s.display_text,
                                 "chunkText": s.chunk_text[:200] + "..." if len(s.chunk_text) > 200 else s.chunk_text,
-                                "chunkIndex": s.chunk_index,
-                                "chunkId": s.chunk_id,
-                                "sectionTitle": s.section_title
+                                "chunkIndex": int(s.chunk_index) if s.chunk_index is not None else 0,
+                                "chunkId": str(s.chunk_id) if s.chunk_id else '',  # Convert UUID to string
+                                "sectionTitle": s.section_title,
+                                "pageStart": s.page_start,
+                                "pageEnd": s.page_end,
+                                "pageBoundaries": s.page_boundaries
                             }
                             for s in suggestions
                         ]

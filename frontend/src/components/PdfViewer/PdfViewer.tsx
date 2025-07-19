@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { zoomPlugin } from '@react-pdf-viewer/zoom';
+import { pageNavigationPlugin } from '@react-pdf-viewer/page-navigation';
+import { highlightPlugin, Trigger } from '@react-pdf-viewer/highlight';
+import { searchPlugin } from '@react-pdf-viewer/search';
 import { api } from '../../services/api';
 import type { CitationSuggestion } from '../../types';
 import PdfViewerErrorBoundary from './ErrorBoundary';
@@ -8,20 +11,43 @@ import PdfViewerErrorBoundary from './ErrorBoundary';
 // Import styles
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/zoom/lib/styles/index.css';
+import '@react-pdf-viewer/page-navigation/lib/styles/index.css';
+import '@react-pdf-viewer/highlight/lib/styles/index.css';
+import '@react-pdf-viewer/search/lib/styles/index.css';
 
 interface PdfViewerProps {
   paper: CitationSuggestion | null;
   onClose: () => void;
+  highlightChunk?: boolean;
 }
 
-const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
+const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = false }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Create zoom plugin instance
+  // Create plugin instances
   const zoomPluginInstance = zoomPlugin();
   const { ZoomIn, ZoomOut, Zoom } = zoomPluginInstance;
+  
+  const pageNavigationPluginInstance = pageNavigationPlugin();
+  const { jumpToPage } = pageNavigationPluginInstance;
+  
+  // Create search plugin to highlight chunk text
+  const searchPluginInstance = searchPlugin({
+    keyword: [],
+    onHighlightKeyword: (props) => {
+      // Custom styling for chunk highlights
+      props.highlightEle.style.backgroundColor = 'rgba(255, 235, 59, 0.4)';
+      props.highlightEle.style.border = '2px solid #FFC107';
+    },
+  });
+  const { highlight: highlightText, clearHighlights } = searchPluginInstance;
+  
+  // Create highlight plugin for interactive highlighting
+  const highlightPluginInstance = highlightPlugin({
+    trigger: Trigger.None, // We'll trigger highlights programmatically
+  });
   
   // Track current zoom level
   const [currentScale, setCurrentScale] = useState(1.0);
@@ -37,6 +63,25 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
       if (unsubscribe) unsubscribe();
     };
   }, [zoomPluginInstance]);
+
+  // Handle document load and navigation to chunk
+  const handleDocumentLoad = useCallback(() => {
+    if (highlightChunk && paper?.pageStart) {
+      // Jump to the page where chunk starts (convert to 0-based index)
+      const targetPage = paper.pageStart - 1;
+      
+      setTimeout(() => {
+        jumpToPage(targetPage).then(() => {
+          // Highlight the chunk text if available
+          if (paper.chunkText) {
+            // Extract a portion of chunk text for highlighting
+            const textToHighlight = paper.chunkText.substring(0, 100).trim();
+            highlightText(textToHighlight);
+          }
+        });
+      }, 500); // Small delay to ensure PDF is fully rendered
+    }
+  }, [highlightChunk, paper, jumpToPage, highlightText]);
 
   useEffect(() => {
     if (!paper) {
@@ -73,6 +118,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
     loadPdf();
   }, [paper]);
 
+  // Clear highlights when paper changes
+  useEffect(() => {
+    return () => {
+      clearHighlights();
+    };
+  }, [paper, clearHighlights]);
+
   if (!paper) {
     return null;
   }
@@ -93,6 +145,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
           <p className="text-sm text-gray-600">
             {paper.authors?.join(', ')} {paper.year && `(${paper.year})`}
           </p>
+          {highlightChunk && paper.pageStart && (
+            <p className="text-xs text-blue-600 mt-1">
+              Showing chunk from page {paper.pageStart}
+              {paper.pageEnd && paper.pageEnd !== paper.pageStart && ` to ${paper.pageEnd}`}
+              {paper.sectionTitle && ` • ${paper.sectionTitle}`}
+            </p>
+          )}
         </div>
         
         {/* Zoom Controls */}
@@ -142,6 +201,19 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
               </button>
             )}
           </Zoom>
+          
+          {/* Clear highlights button */}
+          {highlightChunk && (
+            <button
+              onClick={clearHighlights}
+              className="p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
+              title="Clear highlights"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z" />
+              </svg>
+            </button>
+          )}
         </div>
         
         <button
@@ -195,8 +267,14 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose }) => {
             <div className="h-full">
               <Viewer
                 fileUrl={pdfUrl}
-                plugins={[zoomPluginInstance]}
+                plugins={[
+                  zoomPluginInstance,
+                  pageNavigationPluginInstance,
+                  searchPluginInstance,
+                  highlightPluginInstance
+                ]}
                 defaultScale={1}
+                onDocumentLoad={handleDocumentLoad}
               />
             </div>
           </Worker>

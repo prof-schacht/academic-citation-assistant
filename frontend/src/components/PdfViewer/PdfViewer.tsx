@@ -139,18 +139,18 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
           
           // Extract first few words to help user locate the chunk
           if (paper.chunkText) {
-            // Remove markdown formatting and special characters first
+            // Light cleaning - only remove markdown formatting, keep numbers and punctuation
             const cleanText = paper.chunkText
-              .replace(/[#*_\[\](){}\-–—]/g, ' ') // Remove markdown and punctuation
+              .replace(/^[#*_]+/g, '') // Remove markdown at start of line
+              .replace(/\*\*/g, '') // Remove bold markdown
               .replace(/\n/g, ' ') // Replace newlines with spaces
               .replace(/\s+/g, ' ') // Normalize whitespace
               .trim();
             
-            // Get first 3-5 meaningful words
+            // Get first 5-6 words including numbers and punctuation
             const words = cleanText
               .split(' ')
-              .filter(word => word.length > 2) // Skip short words like "a", "an", "to", etc.
-              .slice(0, 4); // Get up to 4 meaningful words
+              .slice(0, 6); // Get first 6 words
             
             const searchText = words.join(' ');
             
@@ -188,14 +188,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
           <p className="text-sm text-gray-600">
             {paper.authors?.join(', ')} {paper.year && `(${paper.year})`}
           </p>
-          {highlightChunk && paper.pageStart && (
-            <p className="text-xs text-blue-600 mt-1">
-              📍 Citation found on page {paper.pageStart}
-              {paper.pageEnd && paper.pageEnd !== paper.pageStart && ` to ${paper.pageEnd}`}
-              {paper.sectionTitle && ` in section: ${paper.sectionTitle}`}
-              {currentPage >= 0 && ` (Currently viewing page ${currentPage + 1})`}
-            </p>
-          )}
         </div>
         
         {/* Page Navigation Controls */}
@@ -302,7 +294,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ paper, onClose, highlightChunk = 
       {highlightChunk && paper.pageStart && (
         <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
           <p className="text-sm text-blue-800">
-            💡 The citation chunk is located on <strong>page {paper.pageStart}</strong>. 
+            💡 The citation chunk is located on <strong>page {paper.pageStart}</strong>
+            {paper.pageEnd && paper.pageEnd !== paper.pageStart && ` to ${paper.pageEnd}`}. 
           </p>
           {searchTerms && (
             <p className="text-sm text-blue-900 mt-1">

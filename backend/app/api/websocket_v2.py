@@ -178,6 +178,10 @@ async def websocket_citation_endpoint_v2(
                             raise
                         
                         # Format enhanced suggestions
+                        # Log first suggestion details
+                        if suggestions:
+                            logger.info(f"First suggestion details: paperId={suggestions[0].paper_id}, pageStart={suggestions[0].page_start}, pageEnd={suggestions[0].page_end}")
+                        
                         results = [
                             {
                                 "paperId": str(s.paper_id),  # Convert UUID to string

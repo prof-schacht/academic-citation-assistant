@@ -177,6 +177,12 @@ const CitationPanel: React.FC<CitationPanelProps> = ({
                               Part {citation.chunkIndex + 1}
                             </span>
                           )}
+                          {citation.pageStart && (
+                            <span className="text-xs text-blue-600">
+                              📄 Page {citation.pageStart}
+                              {citation.pageEnd && citation.pageEnd !== citation.pageStart && `-${citation.pageEnd}`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

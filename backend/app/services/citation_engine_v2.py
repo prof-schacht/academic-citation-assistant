@@ -168,8 +168,17 @@ class EnhancedCitationEngine:
         # Filter low confidence results
         citations = [c for c in citations if c.confidence > 0.5]
         
+        # Deduplicate by chunk text (first 200 chars) to avoid showing same chunk multiple times
+        seen_chunks = set()
+        deduplicated_citations = []
+        for c in citations:
+            chunk_key = (c.paper_id, c.chunk_text[:200] if c.chunk_text else "")
+            if chunk_key not in seen_chunks:
+                seen_chunks.add(chunk_key)
+                deduplicated_citations.append(c)
+        
         # Limit to top results
-        citations = citations[:15]  # Return more than before due to better quality
+        deduplicated_citations = deduplicated_citations[:15]  # Return more than before due to better quality
         
         # Cache results
         if self.redis_client and citations:
@@ -183,7 +192,7 @@ class EnhancedCitationEngine:
             except Exception as e:
                 logger.warning(f"Cache storage failed: {e}")
         
-        return citations
+        return deduplicated_citations
     
     async def _hybrid_search(
         self, text: str, options: SearchOptions
